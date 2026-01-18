@@ -8,9 +8,9 @@ RUN chmod +x /run.sh
 # Label the image
 LABEL \
   io.hass.name="Music Assistant (Customizable)" \
-  io.hass.description="Official Music Assistant with support for loading custom plugins from /share." \
+  io.hass.description="The music library manager of your dreams. Pure loader version - supports loading custom plugins from /share." \
   io.hass.type="addon" \
-  io.hass.version="2.0.0"
+  io.hass.version="2.7.5"
 
 # Set the entrypoint to our script
 ENTRYPOINT ["/run.sh"]

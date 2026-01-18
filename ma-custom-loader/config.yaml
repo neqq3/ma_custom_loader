@@ -23,6 +23,9 @@ webui: "http://[HOST]:[PORT:8095]"
 host_network: true
 startup: application
 boot: manual
+hassio_role: default
+hassio_api: true
+homeassistant_api: true
 panel_icon: "mdi:music-box-multiple"
 panel_title: "Music Assistant"
 panel_admin: false
