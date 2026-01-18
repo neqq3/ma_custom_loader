@@ -13,7 +13,7 @@ map:
 options:
   log_level: "info"
 schema:
-  log_level: "list(info, debug, warning, error, critical)"
+  log_level: list(info|debug|warning|error|critical)
 ports:
   8095/tcp: 8095
 webui: "http://[HOST]:[PORT:8095]"
@@ -21,4 +21,6 @@ host_network: true
 startup: application
 boot: manual
 panel_icon: "mdi:music-box-multiple"
+panel_title: "Music Assistant"
+panel_admin: false
 image: "ghcr.io/neqq3/ma-custom-loader-{arch}"
