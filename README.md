@@ -4,4 +4,4 @@ This repository contains the **Music Assistant (Customizable)** Add-on for Home 
 
 ## Add-on
 
-- [Music Assistant (Customizable)](./music_assistant_custom)
+- [Music Assistant (Customizable)](./ma_custom_loader)

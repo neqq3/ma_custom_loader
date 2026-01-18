@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - 'music_assistant_custom/**'
+      - 'ma_custom_loader/**'
       - '.github/workflows/**'
   schedule:
     - cron: '0 2 * * *' # Run daily at 2 AM
@@ -38,7 +38,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: music_assistant_custom
-          file: music_assistant_custom/Dockerfile
+          context: ma_custom_loader
+          file: ma_custom_loader/Dockerfile
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
