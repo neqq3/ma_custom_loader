@@ -3,6 +3,9 @@ description: "The music library manager of your dreams. Pre-loaded with NCloud M
 url: "https://github.com/music-assistant/server"
 version: "2.0.0"
 slug: "ma_custom_loader"
+arch:
+  - aarch64
+  - amd64
 init: false
 map:
   - "share:rw"
