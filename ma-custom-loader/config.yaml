@@ -1,6 +1,6 @@
 name: "Music Assistant (Customizable)"
 description: "The music library manager of your dreams. Pre-loaded with NCloud Music + supports loading custom plugins from /share."
-url: "https://github.com/music-assistant/server"
+url: "https://github.com/neqq3/ma_custom_loader"
 version: "2.0.0"
 slug: "ma-custom-loader"
 arch:
