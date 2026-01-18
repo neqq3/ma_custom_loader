@@ -20,6 +20,5 @@ webui: "http://[HOST]:[PORT:8095]"
 host_network: true
 startup: application
 boot: manual
-stage: experimental
 panel_icon: "mdi:music-box-multiple"
 image: "ghcr.io/neqq3/ma-custom-loader-{arch}"
