@@ -2,7 +2,7 @@ ARG BUILD_FROM=ghcr.io/music-assistant/server:stable
 FROM $BUILD_FROM
 
 # Copy the startup script
-COPY ha_addon/run.sh /run.sh
+COPY run.sh /run.sh
 RUN chmod +x /run.sh
 
 # Label the image
