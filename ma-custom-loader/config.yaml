@@ -21,4 +21,4 @@ host_network: true
 startup: application
 boot: manual
 panel_icon: "mdi:music-box-multiple"
-image: "ghcr.io/neqq3/ma-custom-loader-{arch}:latest"
+image: "ghcr.io/neqq3/ma-custom-loader-{arch}"
