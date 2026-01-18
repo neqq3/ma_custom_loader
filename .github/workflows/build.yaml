@@ -20,6 +20,14 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        arch: [aarch64, amd64]
+        include:
+          - arch: aarch64
+            platform: linux/aarch64
+          - arch: amd64
+            platform: linux/amd64
 
     steps:
       - name: Checkout repository
@@ -43,6 +51,6 @@ jobs:
         with:
           context: ma_custom_loader
           file: ma_custom_loader/Dockerfile
-          platforms: linux/amd64,linux/aarch64
+          platforms: ${{ matrix.platform }}
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.arch }}:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.arch }}:${{ github.sha }}

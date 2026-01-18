@@ -21,4 +21,4 @@ host_network: true
 startup: application
 stage: experimental
 panel_icon: "mdi:music-box-multiple"
-image: "ghcr.io/neqq3/ma-custom-loader"
+image: "ghcr.io/neqq3/ma-custom-loader-{arch}"
