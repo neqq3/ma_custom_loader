@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - 'ma_custom_loader/**'
+      - 'ma-custom-loader/**'
       - '.github/workflows/**'
   schedule:
     - cron: '0 2 * * *' # Run daily at 2 AM
@@ -49,8 +49,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ma_custom_loader
-          file: ma_custom_loader/Dockerfile
+          context: ma-custom-loader
+          file: ma-custom-loader/Dockerfile
           platforms: ${{ matrix.platform }}
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.arch }}:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.arch }}:${{ github.sha }}
