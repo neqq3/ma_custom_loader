@@ -39,7 +39,8 @@ echo "🔧 Configuring MA webserver port..."
 echo "======================================="
 
 # 3. 从 add-on 配置读取用户自定义端口（默认 8095）
-SERVER_PORT=$(jq -r '.server_port // 8095' /data/options.json 2>/dev/null || echo "8095")
+# 使用 Python 读取 JSON（无需额外依赖）
+SERVER_PORT=$(python3 -c "import json; print(json.load(open('/data/options.json', 'r')).get('server_port', 8095))" 2>/dev/null || echo "8095")
 SETTINGS_FILE="/data/settings.json"
 
 echo "   Target port: $SERVER_PORT"
@@ -49,32 +50,44 @@ mkdir -p /data
 
 if [ ! -f "$SETTINGS_FILE" ]; then
     echo "   First run detected. Creating settings with port $SERVER_PORT..."
-    # 创建最小化配置，设置用户指定的端口
-    cat > "$SETTINGS_FILE" <<EOF
-{
-  "core.webserver": {
-    "instance_id": "webserver",
-    "type": "core.webserver",
-    "enabled": true,
-    "name": "Webserver",
-    "port": $SERVER_PORT,
-    "bind_ip": "0.0.0.0",
-    "base_url": ""
-  }
+    # 使用 Python 创建 JSON 配置（格式规范，易维护）
+    python3 << EOF
+import json
+settings = {
+    "core.webserver": {
+        "instance_id": "webserver",
+        "type": "core.webserver",
+        "enabled": True,
+        "name": "Webserver",
+        "port": $SERVER_PORT,
+        "bind_ip": "0.0.0.0",
+        "base_url": ""
+    }
 }
+with open("$SETTINGS_FILE", "w") as f:
+    json.dump(settings, f, indent=2)
 EOF
     echo "✅ Settings created with port $SERVER_PORT"
 else
     echo "   Existing settings found. Updating webserver port..."
-    # 使用 jq 更新 webserver 端口
-    if command -v jq >/dev/null 2>&1; then
-        temp_file=$(mktemp)
-        # 确保 core.webserver 配置存在并设置端口
-        jq '. + {"core.webserver": ((.["core.webserver"] // {}) + {"port": '$SERVER_PORT'})}' "$SETTINGS_FILE" > "$temp_file" && mv "$temp_file" "$SETTINGS_FILE"
-        echo "✅ Port updated to $SERVER_PORT"
-    else
-        echo "⚠️  jq not found. Port configuration may not work correctly."
-    fi
+    # 使用 Python 更新端口配置（安全可靠）
+    python3 << EOF
+import json
+try:
+    with open("$SETTINGS_FILE", "r") as f:
+        settings = json.load(f)
+    
+    # 确保 core.webserver 配置存在并更新端口
+    if "core.webserver" not in settings:
+        settings["core.webserver"] = {}
+    settings["core.webserver"]["port"] = $SERVER_PORT
+    
+    with open("$SETTINGS_FILE", "w") as f:
+        json.dump(settings, f, indent=2)
+    print("✅ Port updated to $SERVER_PORT")
+except Exception as e:
+    print(f"⚠️  Failed to update port: {e}")
+EOF
 fi
 
 echo "======================================="
