@@ -19,7 +19,7 @@ schema:
 ports:
   8095/tcp: 8095
 webui: "http://[HOST]:[PORT:8095]"
-host_network: true
+host_network: false
 startup: application
 boot: manual
 hassio_role: manager
