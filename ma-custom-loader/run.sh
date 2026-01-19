@@ -38,12 +38,15 @@ echo "======================================="
 echo "🚀 Starting Music Assistant..."
 echo "======================================="
 
-# 5. Configure MA server port if needed
+# 5. Configure MA server port
 SERVER_PORT="${SERVER_PORT:-8095}"
 CONFIG_FILE="/data/config.json"
 
+echo "📝 Configuring MA server port: $SERVER_PORT"
+
+# Create or update config.json with the correct port
 if [ ! -f "$CONFIG_FILE" ]; then
-    echo "📝 First run detected. Pre-configuring server port: $SERVER_PORT"
+    echo "   First run detected. Creating config file..."
     mkdir -p /data
     cat > "$CONFIG_FILE" << EOF
 {
@@ -53,8 +56,19 @@ if [ ! -f "$CONFIG_FILE" ]; then
 }
 EOF
 else
-    echo "ℹ️  Existing config found. Server port can be changed in MA settings."
+    echo "   Existing config found. Updating port configuration..."
+    # Use jq to update the port if config exists, or create minimal config if parsing fails
+    if command -v jq >/dev/null 2>&1; then
+        # Update using jq if available
+        temp_file=$(mktemp)
+        jq ".webserver.port = $SERVER_PORT" "$CONFIG_FILE" > "$temp_file" && mv "$temp_file" "$CONFIG_FILE"
+    else
+        # Fallback: use sed to update the port
+        sed -i "s/\"port\": [0-9]*/\"port\": $SERVER_PORT/" "$CONFIG_FILE"
+    fi
 fi
+
+echo "✅ Port configuration complete."
 
 # 6. Start the server
 exec mass --config /data
