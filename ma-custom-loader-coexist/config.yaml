@@ -1,5 +1,5 @@
 name: "Music Assistant (Coexistence)"
-description: "Music Assistant with custom plugin support. Designed to coexist with the official add-on."
+description: "Music Assistant with custom plugin support (loads from /share). Designed to coexist with the official add-on."
 url: "https://github.com/neqq3/ma_custom_loader"
 version: "2.7.5"
 slug: "ma-custom-loader-coexist"

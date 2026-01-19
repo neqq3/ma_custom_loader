@@ -78,6 +78,9 @@ fi
 # 确保首次启动时不会尝试绑定原版 MA 的 8095 端口
 patch_port "$MA_PATH" "8095" "8099" "Default Web Port"
 
+# 4. 修补默认 Streamserver 端口 (8097 -> 8098) - 解决流媒体端口冲突
+patch_port "$MA_PATH" "8097" "8098" "Default Stream Port"
+
 echo "======================================="
 echo "🚀 Starting Music Assistant..."
 echo "======================================="
