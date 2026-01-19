@@ -18,9 +18,6 @@ options:
 schema:
   log_level: list(info|debug|warning|error|critical)
   server_port: port
-ports:
-  8095/tcp: 8095
-webui: "http://[HOST]:[PORT:8095]"
 host_network: true
 startup: application
 boot: manual
