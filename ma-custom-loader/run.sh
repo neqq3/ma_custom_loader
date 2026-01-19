@@ -35,6 +35,26 @@ else
 fi
 
 echo "======================================="
+echo "🔧 Patching Ingress Port..."
+echo "======================================="
+
+# 3. 查找并替换硬编码的 Ingress 端口 (8094 -> 8093)
+# 原版 MA 在 Add-on 模式下可能会强制绑定 8094，导致禁用 Ingress 后仍冲突
+MA_PATH=$(python3 -c "import music_assistant; print(music_assistant.__path__[0])")
+echo "📂 MA Location: $MA_PATH"
+
+if grep -r "8094" "$MA_PATH" > /dev/null; then
+    echo "⚠️  Found hardcoded port 8094. Patching to 8093..."
+    grep -r "8094" "$MA_PATH" | cut -d: -f1 | sort | uniq | while read -r file; do
+        echo "   -> Patching $file"
+        sed -i 's/8094/8093/g' "$file"
+    done
+    echo "✅ Port patched."
+else
+    echo "ℹ️  No hardcoded port 8094 found (or already patched)."
+fi
+
+echo "======================================="
 echo "🚀 Starting Music Assistant..."
 echo "======================================="
 
