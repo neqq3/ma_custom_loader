@@ -14,8 +14,10 @@ map:
   - "media:rw"
 options:
   log_level: "info"
+  server_port: 8095
 schema:
   log_level: list(info|debug|warning|error|critical)
+  server_port: port
 ports:
   8095/tcp: 8095
 webui: "http://[HOST]:[PORT:8095]"

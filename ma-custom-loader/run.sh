@@ -38,5 +38,23 @@ echo "======================================="
 echo "🚀 Starting Music Assistant..."
 echo "======================================="
 
-# 4. Start the server
+# 5. Configure MA server port if needed
+SERVER_PORT="${SERVER_PORT:-8095}"
+CONFIG_FILE="/data/config.json"
+
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "📝 First run detected. Pre-configuring server port: $SERVER_PORT"
+    mkdir -p /data
+    cat > "$CONFIG_FILE" << EOF
+{
+  "webserver": {
+    "port": $SERVER_PORT
+  }
+}
+EOF
+else
+    echo "ℹ️  Existing config found. Server port can be changed in MA settings."
+fi
+
+# 6. Start the server
 exec mass --config /data
