@@ -3,8 +3,7 @@ description: "Music Assistant with custom plugin support. Coexists with official
 url: "https://github.com/neqq3/ma_custom_loader"
 version: "2.7.5"
 slug: "ma-custom-loader"
-ingress: true
-ingress_port: 8093
+ingress: false
 arch:
   - aarch64
   - amd64
@@ -22,7 +21,4 @@ boot: manual
 hassio_role: manager
 hassio_api: true
 homeassistant_api: true
-panel_icon: "mdi:music-box-multiple"
-panel_title: "Music Assistant Custom"
-panel_admin: false
 image: "ghcr.io/neqq3/ma-custom-loader-{arch}"
