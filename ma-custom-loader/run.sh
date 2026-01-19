@@ -39,7 +39,8 @@ echo "🚀 Starting Music Assistant..."
 echo "======================================="
 
 # 5. Configure MA server port
-SERVER_PORT="${SERVER_PORT:-8095}"
+# Read port from Home Assistant options
+SERVER_PORT=$(jq -r '.server_port // 8095' /data/options.json 2>/dev/null || echo "8095")
 CONFIG_FILE="/data/config.json"
 
 echo "📝 Configuring MA server port: $SERVER_PORT"
