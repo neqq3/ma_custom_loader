@@ -3,11 +3,11 @@ set -e
 
 echo "=== Music Assistant Custom Loader ==="
 
-# 1. Find Music Assistant providers directory safely
+# 1. 查找 Music Assistant providers 目录
 PROVIDERS_DIR=$(python3 -c "import music_assistant.providers as p; print(list(p.__path__)[0])")
 echo "✅ Internal Providers Directory: $PROVIDERS_DIR"
 
-# 2. Inject Custom Plugins (from User Share)
+# 2. 注入自定义插件 (从用户共享目录)
 CUSTOM_DIR="/share/music_assistant/custom_providers"
 echo "📂 Checking for custom plugins in: $CUSTOM_DIR"
 
@@ -35,41 +35,56 @@ else
 fi
 
 echo "======================================="
-echo "🚀 Starting Music Assistant..."
+echo "🔧 Configuring MA webserver port..."
 echo "======================================="
 
-# 5. Configure MA server port
-# Read port from Home Assistant options
+# 3. 从 add-on 配置读取用户自定义端口（默认 8095）
 SERVER_PORT=$(jq -r '.server_port // 8095' /data/options.json 2>/dev/null || echo "8095")
-CONFIG_FILE="/data/config.json"
+SETTINGS_FILE="/data/settings.json"
 
-echo "📝 Configuring MA server port: $SERVER_PORT"
+echo "   Target port: $SERVER_PORT"
 
-# Create or update config.json with the correct port
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "   First run detected. Creating config file..."
-    mkdir -p /data
-    cat > "$CONFIG_FILE" << EOF
+# 确保数据目录存在
+mkdir -p /data
+
+if [ ! -f "$SETTINGS_FILE" ]; then
+    echo "   First run detected. Creating settings with port $SERVER_PORT..."
+    # 创建最小化配置，设置用户指定的端口
+    cat > "$SETTINGS_FILE" <<EOF
 {
-  "webserver": {
-    "port": $SERVER_PORT
+  "core.webserver": {
+    "instance_id": "webserver",
+    "type": "core.webserver",
+    "enabled": true,
+    "name": "Webserver",
+    "port": $SERVER_PORT,
+    "bind_ip": "0.0.0.0",
+    "base_url": ""
   }
 }
 EOF
+    echo "✅ Settings created with port $SERVER_PORT"
 else
-    echo "   Existing config found. Updating port configuration..."
-    # Use jq to update the port if config exists, or create minimal config if parsing fails
+    echo "   Existing settings found. Updating webserver port..."
+    # 使用 jq 更新 webserver 端口
     if command -v jq >/dev/null 2>&1; then
-        # Update using jq if available
         temp_file=$(mktemp)
-        jq ".webserver.port = $SERVER_PORT" "$CONFIG_FILE" > "$temp_file" && mv "$temp_file" "$CONFIG_FILE"
+        # 确保 core.webserver 配置存在并设置端口
+        jq '. + {"core.webserver": ((.["core.webserver"] // {}) + {"port": '$SERVER_PORT'})}' "$SETTINGS_FILE" > "$temp_file" && mv "$temp_file" "$SETTINGS_FILE"
+        echo "✅ Port updated to $SERVER_PORT"
     else
-        # Fallback: use sed to update the port
-        sed -i "s/\"port\": [0-9]*/\"port\": $SERVER_PORT/" "$CONFIG_FILE"
+        echo "⚠️  jq not found. Port configuration may not work correctly."
     fi
 fi
 
-echo "✅ Port configuration complete."
+echo "======================================="
+echo "🚀 Starting Music Assistant..."
+echo "======================================="
+echo "📌 MA Custom Loader will use port $SERVER_PORT"
+if [ "$SERVER_PORT" != "8095" ]; then
+    echo "   ℹ️  Custom port configured to avoid conflict with original MA"
+fi
+echo "======================================="
 
-# 6. Start the server
+# 4. 启动 MA 服务器
 exec mass --config /data
