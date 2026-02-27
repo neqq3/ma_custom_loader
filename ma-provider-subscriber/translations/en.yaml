@@ -14,6 +14,12 @@ configuration:
   interval_minutes:
     name: Check interval (minutes)
     description: How often to check for updates when run_forever is enabled.
+  retry_attempts:
+    name: Retry attempts
+    description: Max attempts for transient network errors per source.
+  retry_base_seconds:
+    name: Retry base delay (seconds)
+    description: Exponential backoff base delay with jitter for retries.
   prune_removed:
     name: Remove unmanaged old providers
     description: Remove previously managed providers that are no longer in subscriptions.

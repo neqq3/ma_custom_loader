@@ -22,6 +22,8 @@
 - `run_on_start`: `true`
 - `run_forever`: `true`
 - `interval_minutes`: `360`
+- `retry_attempts`: `3`
+- `retry_base_seconds`: `180`
 
 ## sources 支持格式
 
@@ -37,6 +39,7 @@
 
 1. GitHub API 限流导致更新失败：
    - 在 `github_token` 填写个人 token（只读权限即可）。
+   - 可适当提高 `retry_base_seconds`（例如 300）减少短时间重试频率。
 2. 插件没生效：
    - 先看订阅器日志是否下载成功；
    - 再重启 `ma-custom-loader`。

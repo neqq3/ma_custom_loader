@@ -30,4 +30,5 @@
 
 - 无需手动创建 `/share/music_assistant/custom_providers`，会自动创建。
 - 如遇 GitHub API 限流，可在 `github_token` 填写 token。
+- 已内置低频重试（指数退避+抖动），默认 `retry_attempts=3`、`retry_base_seconds=180`。
 - 详细说明见 `DOCS.md`。

@@ -14,6 +14,12 @@ configuration:
   interval_minutes:
     name: 检查间隔（分钟）
     description: run_forever 开启时的更新检查周期。
+  retry_attempts:
+    name: 重试次数
+    description: 单个订阅源在网络类临时错误下的最大尝试次数。
+  retry_base_seconds:
+    name: 重试基准延迟（秒）
+    description: 使用指数退避并带随机抖动，避免短时间高频请求。
   prune_removed:
     name: 清理已取消订阅插件
     description: 删除之前由订阅器管理、但现在已不在 sources 中的插件目录。

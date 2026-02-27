@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import io
 import json
-import os
+import random
 import re
+import socket
+import ssl
 import shutil
 import sys
 import tempfile
@@ -123,6 +125,25 @@ def download_zip(owner: str, repo: str, ref: str, token: str | None) -> bytes:
     return gh_request(f"https://api.github.com/repos/{owner}/{repo}/zipball/{ref}", token)
 
 
+def is_retryable_error(exc: Exception) -> bool:
+    retryable_types = (
+        urllib.error.URLError,
+        TimeoutError,
+        socket.timeout,
+        ConnectionResetError,
+        ssl.SSLError,
+    )
+    return isinstance(exc, retryable_types)
+
+
+def backoff_sleep_seconds(base_seconds: int, attempt_index: int) -> int:
+    # attempt_index starts at 1.
+    raw = base_seconds * (2 ** (attempt_index - 1))
+    capped = min(raw, 1800)
+    jitter = int(random.uniform(0, base_seconds * 0.3))
+    return capped + jitter
+
+
 def find_provider_dirs(root: Path) -> list[Path]:
     provider_dirs = []
     for manifest in root.rglob("manifest.json"):
@@ -146,6 +167,10 @@ def sync_once(options: dict, state: dict) -> dict:
     strategy = options.get("update_strategy", "latest_release")
     prune_removed = bool(options.get("prune_removed", False))
     token = (options.get("github_token") or "").strip() or None
+    retry_attempts = int(options.get("retry_attempts", 3))
+    retry_attempts = max(1, min(5, retry_attempts))
+    retry_base_seconds = int(options.get("retry_base_seconds", 180))
+    retry_base_seconds = max(60, min(1800, retry_base_seconds))
 
     TARGET_DIR.mkdir(parents=True, exist_ok=True)
     next_state = {"sources": {}}
@@ -166,42 +191,74 @@ def sync_once(options: dict, state: dict) -> dict:
         source_key = f"{owner}/{repo}"
 
         try:
-            ref = resolve_ref(owner, repo, parsed, strategy, token)
-            sha = resolve_sha(owner, repo, ref, token)
-            prev = (state.get("sources") or {}).get(source_key, {})
-            if prev.get("sha") == sha:
-                log("INFO", f"{source_key}@{ref} 无更新，跳过。")
+            def run_for_source():
+                ref = resolve_ref(owner, repo, parsed, strategy, token)
+                sha = resolve_sha(owner, repo, ref, token)
+                prev = (state.get("sources") or {}).get(source_key, {})
+                if prev.get("sha") == sha:
+                    return {"status": "no_change", "ref": ref, "sha": sha, "prev": prev}
+
+                archive = download_zip(owner, repo, ref, token)
+                with tempfile.TemporaryDirectory(prefix="provider_subscriber_") as tmp:
+                    tmp_root = Path(tmp)
+                    with zipfile.ZipFile(io.BytesIO(archive)) as zf:
+                        zf.extractall(tmp_root)
+                    roots = [p for p in tmp_root.iterdir() if p.is_dir()]
+                    if not roots:
+                        raise RuntimeError("repository archive is empty")
+                    provider_dirs = find_provider_dirs(roots[0])
+                    if not provider_dirs:
+                        raise RuntimeError("no provider folders found (manifest.json + __init__.py)")
+
+                    installed = []
+                    for provider_dir in provider_dirs:
+                        name = provider_dir.name
+                        target = TARGET_DIR / name
+                        if target.exists():
+                            shutil.rmtree(target)
+                        shutil.copytree(provider_dir, target)
+                        marker = target / ".subscriber_source"
+                        marker.write_text(
+                            f"source={source_key}\nref={ref}\nsha={sha}\n",
+                            encoding="utf-8",
+                        )
+                        installed.append(name)
+                    return {"status": "updated", "ref": ref, "sha": sha, "installed": installed}
+
+            result = None
+            last_exc = None
+            for attempt in range(1, retry_attempts + 1):
+                try:
+                    result = run_for_source()
+                    break
+                except Exception as exc:
+                    last_exc = exc
+                    if not is_retryable_error(exc) or attempt >= retry_attempts:
+                        raise
+                    wait_seconds = backoff_sleep_seconds(retry_base_seconds, attempt)
+                    log(
+                        "WARNING",
+                        f"{source_key} network error on attempt {attempt}/{retry_attempts}: {exc}. "
+                        f"retry in {wait_seconds}s",
+                    )
+                    time.sleep(wait_seconds)
+            if result is None and last_exc:
+                raise last_exc
+
+            if result["status"] == "no_change":
+                ref = result["ref"]
+                prev = result["prev"]
+                log("INFO", f"{source_key}@{ref} no update, skipped.")
                 next_state["sources"][source_key] = prev
                 for name in prev.get("providers", []):
                     expected_providers.add(name)
                 continue
 
-            archive = download_zip(owner, repo, ref, token)
-            with tempfile.TemporaryDirectory(prefix="provider_subscriber_") as tmp:
-                tmp_root = Path(tmp)
-                with zipfile.ZipFile(io.BytesIO(archive)) as zf:
-                    zf.extractall(tmp_root)
-                roots = [p for p in tmp_root.iterdir() if p.is_dir()]
-                if not roots:
-                    raise RuntimeError("仓库压缩包为空")
-                provider_dirs = find_provider_dirs(roots[0])
-                if not provider_dirs:
-                    raise RuntimeError("未找到 provider 目录（manifest.json + __init__.py）")
-
-                installed = []
-                for provider_dir in provider_dirs:
-                    name = provider_dir.name
-                    target = TARGET_DIR / name
-                    if target.exists():
-                        shutil.rmtree(target)
-                    shutil.copytree(provider_dir, target)
-                    marker = target / ".subscriber_source"
-                    marker.write_text(
-                        f"source={source_key}\nref={ref}\nsha={sha}\n",
-                        encoding="utf-8",
-                    )
-                    installed.append(name)
-                    expected_providers.add(name)
+            ref = result["ref"]
+            sha = result["sha"]
+            installed = result["installed"]
+            for name in installed:
+                expected_providers.add(name)
 
             next_state["sources"][source_key] = {
                 "ref": ref,
@@ -209,9 +266,9 @@ def sync_once(options: dict, state: dict) -> dict:
                 "providers": sorted(installed),
                 "synced_at": datetime.now(timezone.utc).isoformat(),
             }
-            log("INFO", f"{source_key}@{ref} 更新完成，provider: {', '.join(installed)}")
+            log("INFO", f"{source_key}@{ref} updated, providers: {', '.join(installed)}")
         except Exception as exc:
-            log("ERROR", f"{source_key} 更新失败: {exc}")
+            log("ERROR", f"{source_key} update failed: {exc}")
             prev = (state.get("sources") or {}).get(source_key)
             if prev:
                 next_state["sources"][source_key] = prev
@@ -249,7 +306,7 @@ def main() -> int:
             log("INFO", "run_forever=false，执行完成后退出。")
             return 0
 
-        log("INFO", f"下次检查将在 {interval_seconds} 秒后执行。")
+        log("INFO", f"next check in {interval_seconds} seconds.")
         time.sleep(interval_seconds)
 
 

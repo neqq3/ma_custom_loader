@@ -15,6 +15,8 @@ options:
   run_on_start: true
   run_forever: true
   interval_minutes: 360
+  retry_attempts: 3
+  retry_base_seconds: 180
   prune_removed: false
   sources: []
 schema:
@@ -23,6 +25,8 @@ schema:
   run_on_start: bool
   run_forever: bool
   interval_minutes: int(10,10080)
+  retry_attempts: int(1,5)
+  retry_base_seconds: int(60,1800)
   prune_removed: bool
   github_token: str?
   sources:
