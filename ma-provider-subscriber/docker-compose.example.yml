@@ -1,0 +1,12 @@
+services:
+  ma-provider-subscriber:
+    image: ghcr.io/neqq3/ma-provider-subscriber-amd64:latest
+    container_name: ma-provider-subscriber
+    restart: unless-stopped
+    environment:
+      - SUBSCRIBER_CONFIG_PATH=/config/options.json
+      - SUBSCRIBER_STATE_PATH=/config/provider_subscriber_state.json
+      - SUBSCRIBER_TARGET_DIR=/share/music_assistant/custom_providers
+    volumes:
+      - ./config:/config
+      - ./plugins:/share/music_assistant/custom_providers

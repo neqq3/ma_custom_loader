@@ -1,0 +1,15 @@
+{
+  "log_level": "info",
+  "update_strategy": "latest_release",
+  "run_on_start": true,
+  "run_forever": true,
+  "interval_minutes": 360,
+  "retry_attempts": 3,
+  "retry_base_seconds": 180,
+  "prune_removed": false,
+  "github_token": "",
+  "sources": [
+    "neqq3/ma_ncloud_music",
+    "andychao2024/music-assistant-providers"
+  ]
+}
