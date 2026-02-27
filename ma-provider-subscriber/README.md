@@ -4,30 +4,30 @@
 
 `/share/music_assistant/custom_providers`
 
-这样 `ma-custom-loader` 在启动时就能直接加载这些插件，不需要每次手动上传文件。
+再由 `ma-custom-loader` 注入到 Music Assistant。
+
+## 快速使用
+
+1. 在配置中填写 `sources`（每行一个）：
+   - `neqq3/ma_ncloud_music`
+   - `andychao2024/music-assistant-providers`
+2. 保存并重启本加载项。
+3. 查看日志确认已下载成功。
+4. 重启 `ma-custom-loader` 让插件生效。
 
 ## Source 格式
 
-在 `sources` 里每行一个仓库，支持：
-
-- `owner/repo`（默认跟随发布策略）
-- `owner/repo@tag_or_branch`（固定版本/分支）
+- `owner/repo`
+- `owner/repo@tag_or_branch`
 - `https://github.com/owner/repo`
-
-示例：
-
-- `neqq3/ma_ncloud_music`
-- `andychao2024/music-assistant-providers`
-- `someuser/some-provider@v1.2.3`
 
 ## 更新策略
 
-- `latest_release`：优先使用最新 Release；没有 Release 则回退默认分支
+- `latest_release`：优先使用最新 Release；无 Release 时回退默认分支
 - `default_branch`：始终使用默认分支最新提交
 
-## 推荐配置
+## 说明
 
-- `interval_minutes: 360`（每 6 小时检查一次）
-- `run_on_start: true`
-- `run_forever: true`
-- 如果仓库较多，建议配置 `github_token`，避免 GitHub 匿名 API 限流
+- 无需手动创建 `/share/music_assistant/custom_providers`，会自动创建。
+- 如遇 GitHub API 限流，可在 `github_token` 填写 token。
+- 详细说明见 `DOCS.md`。

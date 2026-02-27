@@ -1,0 +1,25 @@
+configuration:
+  log_level:
+    name: 日志级别
+    description: 控制加载项日志输出详细程度。
+  update_strategy:
+    name: 更新策略
+    description: latest_release 使用最新 Release；default_branch 使用默认分支最新提交。
+  run_on_start:
+    name: 启动时执行
+    description: 加载项启动后立即执行一次更新。
+  run_forever:
+    name: 持续运行
+    description: 持续驻留并按周期检查更新。
+  interval_minutes:
+    name: 检查间隔（分钟）
+    description: run_forever 开启时的更新检查周期。
+  prune_removed:
+    name: 清理已取消订阅插件
+    description: 删除之前由订阅器管理、但现在已不在 sources 中的插件目录。
+  github_token:
+    name: GitHub Token（可选）
+    description: 可选，填写后可减少 GitHub API 限流导致的失败。
+  sources:
+    name: 订阅源列表
+    description: 每行一个仓库，例如 owner/repo 或 owner/repo@tag。

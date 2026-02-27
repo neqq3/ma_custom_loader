@@ -1,4 +1,4 @@
-name: "Music Assistant Provider Subscriber"
+name: "Music Assistant Provider Subscriber (订阅器)"
 description: "订阅 GitHub Provider 仓库并自动下载更新到 /share/music_assistant/custom_providers。"
 url: "https://github.com/neqq3/ma_custom_loader"
 version: "0.1.0"

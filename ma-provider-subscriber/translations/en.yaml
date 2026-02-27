@@ -1,0 +1,25 @@
+configuration:
+  log_level:
+    name: Log level
+    description: Controls the detail level of add-on logs.
+  update_strategy:
+    name: Update strategy
+    description: latest_release uses latest GitHub release, default_branch uses branch HEAD.
+  run_on_start:
+    name: Run on start
+    description: Run update once when the add-on starts.
+  run_forever:
+    name: Run forever
+    description: Keep running and check periodically.
+  interval_minutes:
+    name: Check interval (minutes)
+    description: How often to check for updates when run_forever is enabled.
+  prune_removed:
+    name: Remove unmanaged old providers
+    description: Remove previously managed providers that are no longer in subscriptions.
+  github_token:
+    name: GitHub token (optional)
+    description: Optional token to reduce GitHub API rate-limit issues.
+  sources:
+    name: Subscription sources
+    description: One repo per line, such as owner/repo or owner/repo@tag.
