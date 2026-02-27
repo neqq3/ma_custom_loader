@@ -19,7 +19,32 @@ env:
   IMAGE_NAME_SUBSCRIBER: neqq3/ma-provider-subscriber
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      ma_loader: ${{ steps.filter.outputs.ma_loader }}
+      subscriber: ${{ steps.filter.outputs.subscriber }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            ma_loader:
+              - 'ma-custom-loader/**'
+              - 'scripts/**'
+              - '.github/workflows/**'
+            subscriber:
+              - 'ma-provider-subscriber/**'
+              - 'docs/**'
+              - '.github/workflows/**'
+
   build:
+    needs: changes
+    if: github.event_name == 'schedule' || needs.changes.outputs.ma_loader == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -103,7 +128,8 @@ jobs:
           git push
 
   build_subscriber:
-    if: github.event_name != 'schedule'
+    needs: changes
+    if: github.event_name != 'schedule' && needs.changes.outputs.subscriber == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
