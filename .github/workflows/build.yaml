@@ -60,15 +60,8 @@ jobs:
         if: github.event_name != 'schedule' || steps.sync.outputs.changed == 'true'
         run: |
           docker pull "${{ steps.version.outputs.build_from }}"
-          docker run --rm "${{ steps.version.outputs.build_from }}" sh -c "command -v mass"
-          docker run --rm "${{ steps.version.outputs.build_from }}" python3 - <<'PY'
-          import importlib
-          pkg = importlib.import_module("music_assistant.providers")
-          paths = list(getattr(pkg, "__path__", []))
-          if not paths:
-              raise RuntimeError("music_assistant.providers has no __path__")
-          print("providers_dir:", paths[0])
-          PY
+          docker run --rm --entrypoint sh "${{ steps.version.outputs.build_from }}" -c "command -v mass"
+          docker run --rm --entrypoint python3 "${{ steps.version.outputs.build_from }}" -c "import importlib; pkg = importlib.import_module('music_assistant.providers'); paths = list(getattr(pkg, '__path__', [])); assert paths, 'music_assistant.providers has no __path__'; print('providers_dir:', paths[0])"
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
