@@ -5,6 +5,7 @@ on:
     branches: [ "main" ]
     paths:
       - 'ma-custom-loader/**'
+      - 'scripts/**'
       - '.github/workflows/**'
   schedule:
     - cron: '0 2 * * *' # Run daily at 2 AM
@@ -18,7 +19,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     strategy:
       matrix:
@@ -32,6 +33,42 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync add-on version with upstream (scheduled/manual only)
+        id: sync
+        if: github.event_name != 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash scripts/sync_upstream_version.sh
+
+      - name: Read add-on version
+        id: version
+        run: |
+          VERSION="$(sed -n 's/^version: "\(.*\)"/\1/p' ma-custom-loader/config.yaml)"
+          if [ -z "$VERSION" ]; then
+            echo "ERROR: failed to read version from ma-custom-loader/config.yaml" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_from=ghcr.io/music-assistant/server:$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $VERSION"
+
+      - name: Preflight upstream compatibility check
+        if: github.event_name != 'schedule' || steps.sync.outputs.changed == 'true'
+        run: |
+          docker pull "${{ steps.version.outputs.build_from }}"
+          docker run --rm "${{ steps.version.outputs.build_from }}" sh -c "command -v mass"
+          docker run --rm "${{ steps.version.outputs.build_from }}" python3 - <<'PY'
+          import importlib
+          pkg = importlib.import_module("music_assistant.providers")
+          paths = list(getattr(pkg, "__path__", []))
+          if not paths:
+              raise RuntimeError("music_assistant.providers has no __path__")
+          print("providers_dir:", paths[0])
+          PY
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -47,10 +84,24 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push Docker image
+        if: github.event_name != 'schedule' || steps.sync.outputs.changed == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ma-custom-loader
           file: ma-custom-loader/Dockerfile
           platforms: ${{ matrix.platform }}
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.arch }}:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.arch }}:2.7.5,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.arch }}:${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.arch }}:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.arch }}:${{ steps.version.outputs.version }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.arch }}:${{ github.sha }}
+
+      - name: Commit synced version metadata
+        if: steps.sync.outputs.changed == 'true' && matrix.arch == 'amd64'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ma-custom-loader/config.yaml ma-custom-loader/Dockerfile
+          if git diff --cached --quiet; then
+            echo "No metadata changes to commit."
+            exit 0
+          fi
+          git commit -m "chore: sync upstream Music Assistant v${{ steps.version.outputs.version }} [skip ci]"
+          git push

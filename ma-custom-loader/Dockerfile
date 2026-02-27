@@ -1,4 +1,4 @@
-ARG BUILD_FROM=ghcr.io/music-assistant/server:stable
+ARG BUILD_FROM=ghcr.io/music-assistant/server:2.7.9
 FROM $BUILD_FROM
 
 # Copy the startup script
@@ -10,7 +10,7 @@ LABEL \
   io.hass.name="Music Assistant (Customizable)" \
   io.hass.description="The music library manager of your dreams. Pure loader version - supports loading custom plugins from /share." \
   io.hass.type="addon" \
-  io.hass.version="2.7.5"
+  io.hass.version="2.7.9"
 
 # Set the entrypoint to our script
 ENTRYPOINT ["/run.sh"]
