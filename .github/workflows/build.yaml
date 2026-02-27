@@ -114,8 +114,10 @@ jobs:
         include:
           - arch: aarch64
             platform: linux/aarch64
+            build_from: ghcr.io/home-assistant/aarch64-base:latest
           - arch: amd64
             platform: linux/amd64
+            build_from: ghcr.io/home-assistant/amd64-base:latest
 
     steps:
       - name: Checkout repository
@@ -151,5 +153,7 @@ jobs:
           context: ma-provider-subscriber
           file: ma-provider-subscriber/Dockerfile
           platforms: ${{ matrix.platform }}
+          build-args: |
+            BUILD_FROM=${{ matrix.build_from }}
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SUBSCRIBER }}-${{ matrix.arch }}:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SUBSCRIBER }}-${{ matrix.arch }}:${{ steps.version.outputs.version }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SUBSCRIBER }}-${{ matrix.arch }}:${{ github.sha }}
