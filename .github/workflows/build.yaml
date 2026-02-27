@@ -5,6 +5,8 @@ on:
     branches: [ "main" ]
     paths:
       - 'ma-custom-loader/**'
+      - 'ma-provider-subscriber/**'
+      - 'docs/**'
       - 'scripts/**'
       - '.github/workflows/**'
   schedule:
@@ -14,6 +16,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: neqq3/ma-custom-loader
+  IMAGE_NAME_SUBSCRIBER: neqq3/ma-provider-subscriber
 
 jobs:
   build:
@@ -98,3 +101,55 @@ jobs:
           fi
           git commit -m "chore: sync upstream Music Assistant v${{ steps.version.outputs.version }} [skip ci]"
           git push
+
+  build_subscriber:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        arch: [aarch64, amd64]
+        include:
+          - arch: aarch64
+            platform: linux/aarch64
+          - arch: amd64
+            platform: linux/amd64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read subscriber version
+        id: version
+        run: |
+          VERSION="$(sed -n 's/^version: "\(.*\)"/\1/p' ma-provider-subscriber/config.yaml)"
+          if [ -z "$VERSION" ]; then
+            echo "ERROR: failed to read version from ma-provider-subscriber/config.yaml" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved subscriber version: $VERSION"
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push subscriber image
+        uses: docker/build-push-action@v5
+        with:
+          context: ma-provider-subscriber
+          file: ma-provider-subscriber/Dockerfile
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SUBSCRIBER }}-${{ matrix.arch }}:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SUBSCRIBER }}-${{ matrix.arch }}:${{ steps.version.outputs.version }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SUBSCRIBER }}-${{ matrix.arch }}:${{ github.sha }}

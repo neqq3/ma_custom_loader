@@ -1,0 +1,33 @@
+name: "Music Assistant Provider Subscriber"
+description: "订阅 GitHub Provider 仓库并自动下载更新到 /share/music_assistant/custom_providers。"
+url: "https://github.com/neqq3/ma_custom_loader"
+version: "0.1.0"
+slug: "ma-provider-subscriber"
+arch:
+  - aarch64
+  - amd64
+init: false
+map:
+  - "share:rw"
+options:
+  log_level: "info"
+  update_strategy: "latest_release"
+  run_on_start: true
+  run_forever: true
+  interval_minutes: 360
+  prune_removed: false
+  sources: []
+schema:
+  log_level: list(debug|info|warning|error)
+  update_strategy: list(latest_release|default_branch)
+  run_on_start: bool
+  run_forever: bool
+  interval_minutes: int(10,10080)
+  prune_removed: bool
+  github_token: str?
+  sources:
+    - str
+startup: services
+boot: auto
+hassio_role: default
+image: "ghcr.io/neqq3/ma-provider-subscriber-{arch}"

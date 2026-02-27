@@ -1,33 +1,31 @@
-# Music Assistant 自定义加载器仓库
+# Music Assistant 自定义加载仓库
 
-本仓库提供一个 Home Assistant 的 Music Assistant 自定义 Add-on，核心能力是从 `/share` 目录注入自定义 provider。
+本仓库面向 Home Assistant，提供两个相关 Add-on：
+
+1. `ma-custom-loader`
+2. `ma-provider-subscriber`
 
 [English Version](./README_EN.md)
 
-## 当前维护的 Add-on
+## 1) Music Assistant (Custom Loader)
 
-### Music Assistant (Custom Loader)
 - **Slug**: `ma-custom-loader`
-- **说明**: 标准版 MA 加载器，支持自定义 provider 注入
-- **功能**:
-  - 从 `/share/music_assistant/custom_providers` 加载自定义 provider
-  - 支持 Ingress
-  - 使用 MA 默认端口
+- **作用**: 启动 MA 时，从 `/share/music_assistant/custom_providers` 注入自定义 provider
+- **定位**: 尽量少改 MA 原版行为，保持长期可维护
 
-`coexist` 版本已停止维护，并已从仓库入口中隐藏。
+## 2) Music Assistant Provider Subscriber
 
-## 自动同步策略
+- **Slug**: `ma-provider-subscriber`
+- **作用**: 订阅第三方 GitHub provider 仓库，自动下载/更新到
+  `/share/music_assistant/custom_providers`
+- **典型用法**: 给常用插件仓库做自动更新，避免每次手工下载上传
 
-仓库已配置定时自动同步机制：每天检查 `music-assistant/server` 最新 release，若发现新版本会自动更新 Add-on 元数据并发布镜像，减少手工改版本导致的问题。
+### Source 示例
 
-## 安装
+- `neqq3/ma_ncloud_music`
+- `andychao2024/music-assistant-providers`
+- `someuser/some-provider@v1.2.3`
 
-1. 在 Home Assistant Add-on Store 添加仓库地址：
-   `https://github.com/neqq3/ma_custom_loader`
-2. 安装 `Music Assistant (Custom Loader)`。
+## 插件仓库规范
 
-## 使用自定义插件
-
-1. 创建目录 `/share/music_assistant/custom_providers`
-2. 将插件目录放入该路径（每个插件目录内需包含 `__init__.py`、`manifest.json`）
-3. 重启 Add-on
+见文档：[docs/provider_repo_spec.md](./docs/provider_repo_spec.md)

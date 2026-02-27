@@ -1,31 +1,34 @@
 # Music Assistant Custom Loader Repository
 
-This repository provides a custom Home Assistant Add-on for Music Assistant with support for loading custom providers from `/share`.
+This repository provides two Home Assistant add-ons:
 
-## Available Add-on
+1. `ma-custom-loader`
+2. `ma-provider-subscriber`
 
-### Music Assistant (Custom Loader)
+## 1) Music Assistant (Custom Loader)
+
 - **Slug**: `ma-custom-loader`
-- **Description**: Standard Music Assistant add-on with custom provider injection.
-- **Features**:
-  - Loads custom providers from `/share/music_assistant/custom_providers`
-  - Full Ingress support
-  - Uses default Music Assistant ports
+- **Purpose**: Inject custom providers from `/share/music_assistant/custom_providers` at startup.
+- **Design goal**: Keep changes minimal against upstream MA for easier long-term maintenance.
 
-> The coexistence variant is no longer maintained and is hidden from this repository.
+## 2) Music Assistant Provider Subscriber
 
-## Auto-sync Policy
+- **Slug**: `ma-provider-subscriber`
+- **Purpose**: Subscribe third-party GitHub provider repositories and auto-download/update them into `/share/music_assistant/custom_providers`.
+- **Use case**: Avoid manual download/upload every time.
 
-This repo includes scheduled automation that checks the latest `music-assistant/server` release and updates add-on metadata automatically before publishing images.
+### Source Examples
 
-## Installation
+- `neqq3/ma_ncloud_music`
+- `andychao2024/music-assistant-providers`
+- `someuser/some-provider@v1.2.3`
 
-1. Add this repository URL in Home Assistant Add-on Store:
-   `https://github.com/neqq3/ma_custom_loader`
-2. Install `Music Assistant (Custom Loader)`.
+## Why Two Add-ons
 
-## Usage
+- `custom-loader` handles local provider loading only.
+- `provider-subscriber` handles network fetch/update only.
+- This separation keeps MA runtime stable and follows a minimal-change strategy.
 
-1. Create `/share/music_assistant/custom_providers`
-2. Place your custom provider folders there
-3. Restart the add-on
+## Provider Repository Spec
+
+See: [docs/provider_repo_spec.md](./docs/provider_repo_spec.md)
