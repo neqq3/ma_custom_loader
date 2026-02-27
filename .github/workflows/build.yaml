@@ -36,11 +36,9 @@ jobs:
             ma_loader:
               - 'ma-custom-loader/**'
               - 'scripts/**'
-              - '.github/workflows/**'
             subscriber:
               - 'ma-provider-subscriber/**'
               - 'docs/**'
-              - '.github/workflows/**'
 
   build:
     needs: changes
