@@ -50,10 +50,103 @@ is_true() {
 }
 
 import_official_config="$(read_option bool import_official_config false)"
+auto_detect_official_slug="$(read_option bool auto_detect_official_slug true)"
 official_slug="$(read_option str official_slug core_music_assistant)"
 force_overwrite_on_import="$(read_option bool force_overwrite_on_import false)"
 strict_provider_injection="$(read_option bool strict_provider_injection false)"
 migration_marker="/data/.official_import_done"
+
+find_source_dir_by_slug() {
+  local slug="$1"
+  local base=""
+  local candidate=""
+  local path=""
+  for base in /addon_configs /data/addons/data /mnt/data/supervisor/addons/data; do
+    [[ -d "${base}" ]] || continue
+
+    # Exact folder name match.
+    candidate="${base}/${slug}"
+    if [[ -d "${candidate}" ]]; then
+      echo "${candidate}"
+      return 0
+    fi
+
+    # Common prefixed form used by some environments.
+    candidate="${base}/addon_${slug}"
+    if [[ -d "${candidate}" ]]; then
+      echo "${candidate}"
+      return 0
+    fi
+
+    # Repo-hash prefix form like addon_<repohash>_<slug>.
+    for path in "${base}"/addon_*_"${slug}"; do
+      if [[ -d "${path}" ]]; then
+        echo "${path}"
+        return 0
+      fi
+    done
+  done
+  return 1
+}
+
+discover_slug_from_supervisor() {
+  if [[ -z "${SUPERVISOR_TOKEN:-}" ]] || ! command -v curl >/dev/null 2>&1; then
+    return 1
+  fi
+  curl -fsSL \
+    -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+    -H "Content-Type: application/json" \
+    "http://supervisor/addons" 2>/dev/null \
+    | python3 - <<'PY'
+import json
+import sys
+
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    raise SystemExit(1)
+
+addons = payload.get("data", {}).get("addons", [])
+for addon in addons:
+    slug = str(addon.get("slug", ""))
+    if not slug:
+        continue
+    lower_slug = slug.lower()
+    if "music_assistant" not in lower_slug:
+        continue
+    if "custom_loader" in lower_slug or "custom-loader" in lower_slug:
+        continue
+    print(slug)
+    raise SystemExit(0)
+
+raise SystemExit(1)
+PY
+}
+
+discover_slug_from_filesystem() {
+  local base=""
+  local path=""
+  local slug=""
+  shopt -s nullglob
+  for base in /addon_configs /data/addons/data /mnt/data/supervisor/addons/data; do
+    [[ -d "${base}" ]] || continue
+    for path in "${base}"/*; do
+      [[ -d "${path}" ]] || continue
+      slug="$(basename "${path}")"
+      case "${slug,,}" in
+        *music_assistant*)
+          if [[ "${slug,,}" != *custom_loader* && "${slug,,}" != *custom-loader* ]]; then
+            echo "${slug}"
+            shopt -u nullglob
+            return 0
+          fi
+          ;;
+      esac
+    done
+  done
+  shopt -u nullglob
+  return 1
+}
 
 if is_true "${import_official_config}"; then
   if [[ -f "${migration_marker}" ]]; then
@@ -61,17 +154,38 @@ if is_true "${import_official_config}"; then
   else
     echo "Official config import requested."
     source_dir=""
-    for base in /addon_configs /data/addons/data; do
-      candidate="${base}/${official_slug}"
-      if [[ -d "${candidate}" ]]; then
-        source_dir="${candidate}"
-        break
+
+    # Step 1: exact match by configured slug.
+    if source_dir="$(find_source_dir_by_slug "${official_slug}" 2>/dev/null)"; then
+      echo "Found source by configured slug: ${official_slug}"
+    fi
+
+    # Step 2: fallback auto-detection when exact match is unavailable.
+    if [[ -z "${source_dir}" ]] && is_true "${auto_detect_official_slug}"; then
+      detected_slug="$(discover_slug_from_supervisor || true)"
+      if [[ -n "${detected_slug}" ]]; then
+        source_dir="$(find_source_dir_by_slug "${detected_slug}" 2>/dev/null || true)"
+        if [[ -n "${source_dir}" ]]; then
+          echo "Detected official slug via Supervisor API: ${detected_slug}"
+          official_slug="${detected_slug}"
+        fi
       fi
-    done
+
+      if [[ -z "${source_dir}" ]]; then
+        detected_slug="$(discover_slug_from_filesystem || true)"
+        if [[ -n "${detected_slug}" ]]; then
+          source_dir="$(find_source_dir_by_slug "${detected_slug}" 2>/dev/null || true)"
+          if [[ -n "${source_dir}" ]]; then
+            echo "Detected official slug via filesystem scan: ${detected_slug}"
+            official_slug="${detected_slug}"
+          fi
+        fi
+      fi
+    fi
 
     if [[ -z "${source_dir}" ]]; then
       echo "WARNING: official add-on data folder not found for slug '${official_slug}'. Skipping import."
-      echo "Set 'official_slug' to the exact folder name and retry."
+      echo "Try setting 'official_slug' explicitly, or keep 'auto_detect_official_slug: true'."
     else
       mapfile -t target_entries < <(find /data -mindepth 1 -maxdepth 1 2>/dev/null || true)
       if [[ "${#target_entries[@]}" -gt 0 ]] && ! is_true "${force_overwrite_on_import}"; then

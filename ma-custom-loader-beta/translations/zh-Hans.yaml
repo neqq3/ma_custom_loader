@@ -1,0 +1,19 @@
+configuration:
+  log_level:
+    name: 日志级别
+    description: 控制加载器日志输出级别。
+  strict_provider_injection:
+    name: 严格插件注入
+    description: 开启后，如果无法定位 MA 内部 providers 目录，将直接启动失败。
+  import_official_config:
+    name: 导入原版 MA 配置
+    description: 启动时执行一次性迁移，将原版 MA 配置导入到当前加载版。
+  auto_detect_official_slug:
+    name: 自动识别原版 MA 标识
+    description: 当 official_slug 不正确时，自动通过 Supervisor API 和目录扫描识别原版 MA。
+  official_slug:
+    name: 原版 MA 标识 (slug)
+    description: 原版 MA 的 slug，例如 core_music_assistant 或 d6faf732_music_assistant。
+  force_overwrite_on_import:
+    name: 强制覆盖当前配置
+    description: 导入时允许覆盖当前 /data。仅在确认已备份后使用。
