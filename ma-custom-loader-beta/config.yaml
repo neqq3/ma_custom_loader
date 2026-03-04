@@ -1,0 +1,40 @@
+name: "Music Assistant (Custom Loader) (BETA)"
+description: "BETA channel for Music Assistant custom loader features. Supports loading custom plugins from /share."
+url: "https://github.com/neqq3/ma_custom_loader"
+version: "2.7.10-beta.1"
+slug: "ma-custom-loader-beta"
+ingress: true
+ingress_port: 8094
+arch:
+  - aarch64
+  - amd64
+init: false
+map:
+  - "share:rw"
+  - "media:rw"
+  - "addon_config:rw"
+options:
+  log_level: "info"
+  strict_provider_injection: false
+  import_official_config: false
+  official_slug: "core_music_assistant"
+  force_overwrite_on_import: false
+schema:
+  log_level: list(info|debug|warning|error|critical)
+  strict_provider_injection: bool
+  import_official_config: bool
+  official_slug: str
+  force_overwrite_on_import: bool
+ports:
+  8095/tcp: 8095
+webui: "http://[HOST]:[PORT:8095]"
+host_network: true
+startup: application
+boot: manual
+hassio_role: manager
+hassio_api: true
+homeassistant_api: true
+panel_icon: "mdi:music-box-multiple"
+panel_title: "Music Assistant (BETA)"
+panel_admin: false
+image: "ghcr.io/neqq3/ma-custom-loader-beta-{arch}"
