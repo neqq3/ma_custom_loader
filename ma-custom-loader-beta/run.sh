@@ -90,32 +90,33 @@ find_source_dir_by_slug() {
 }
 
 discover_slug_from_supervisor() {
-  local addons_json=""
   if [[ -z "${SUPERVISOR_TOKEN:-}" ]]; then
     echo "Auto-detect: SUPERVISOR_TOKEN is missing, skip Supervisor API lookup." >&2
     return 1
   fi
-  if ! command -v curl >/dev/null 2>&1; then
-    echo "Auto-detect: curl is unavailable, skip Supervisor API lookup." >&2
-    return 1
-  fi
-  addons_json="$(
-  curl -fsSL \
-    -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
-    -H "Content-Type: application/json" \
-    "http://supervisor/addons" 2>/dev/null
-  )" || {
-    echo "Auto-detect: Supervisor API request failed." >&2
-    return 1
-  }
-  ADDONS_JSON="${addons_json}" python3 - <<'PY'
+  SUPERVISOR_TOKEN="${SUPERVISOR_TOKEN}" python3 - <<'PY'
 import json
 import os
 import re
+import urllib.error
+import urllib.request
 
 try:
-    payload = json.loads(os.environ.get("ADDONS_JSON", ""))
-except Exception:
+    token = os.environ["SUPERVISOR_TOKEN"]
+except KeyError:
+    raise SystemExit(1)
+
+req = urllib.request.Request(
+    "http://supervisor/addons",
+    headers={
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    },
+)
+try:
+    with urllib.request.urlopen(req, timeout=8) as resp:
+        payload = json.loads(resp.read().decode("utf-8"))
+except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError):
     raise SystemExit(1)
 
 addons = payload.get("data", {}).get("addons", [])
@@ -135,6 +136,25 @@ for addon in addons:
 
 raise SystemExit(1)
 PY
+}
+
+log_import_probe() {
+  local base=""
+  local found_any="false"
+  for base in /addon_configs /data/addons/data /mnt/data/supervisor/addons/data; do
+    if [[ -d "${base}" ]]; then
+      found_any="true"
+      echo "Import probe: found base dir ${base}"
+      find "${base}" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sed -n '1,8p' | while read -r entry; do
+        echo "  - $(basename "${entry}")"
+      done
+    else
+      echo "Import probe: base dir not visible ${base}"
+    fi
+  done
+  if [[ "${found_any}" != "true" ]]; then
+    echo "Import probe: no add-on data base directories are visible in this container."
+  fi
 }
 
 discover_slug_from_filesystem() {
@@ -207,6 +227,7 @@ if is_true "${import_official_config}"; then
       echo "WARNING: official add-on data folder not found. Skipping import."
       echo "Checked auto-detect and configured slug fallback."
       echo "Tips: keep auto_detect_official_slug=true and leave official_slug empty, or set real slug manually."
+      log_import_probe
     else
       mapfile -t target_entries < <(find /data -mindepth 1 -maxdepth 1 2>/dev/null || true)
       if [[ "${#target_entries[@]}" -gt 0 ]] && ! is_true "${force_overwrite_on_import}"; then

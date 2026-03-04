@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 2.7.10-beta.2
+
+- Fix Supervisor API auto-detection to avoid external curl dependency.
+- Add import probe logs to show visible add-on data directories during migration.
+- Improve migration diagnostics when official MA source directory is not found.
+
 ## 2.7.10-beta.1
 
 - Add optional one-time official MA config import flow.
