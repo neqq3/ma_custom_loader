@@ -18,7 +18,7 @@ options:
   strict_provider_injection: false
   import_official_config: false
   auto_detect_official_slug: true
-  official_slug: "core_music_assistant"
+  official_slug: ""
   force_overwrite_on_import: false
 schema:
   log_level: list(info|debug|warning|error|critical)

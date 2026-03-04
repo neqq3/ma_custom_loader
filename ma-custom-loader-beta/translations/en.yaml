@@ -13,7 +13,7 @@ configuration:
     description: If official_slug is invalid, try Supervisor API and filesystem scan automatically.
   official_slug:
     name: Official MA Slug
-    description: Official MA slug, for example core_music_assistant or d6faf732_music_assistant.
+    description: Optional. Leave empty to prefer auto-detection; set manually only if detection fails.
   force_overwrite_on_import:
     name: Force Overwrite During Import
     description: Allow replacing current /data during import. Use only after backup.

@@ -13,7 +13,7 @@ configuration:
     description: 当 official_slug 不正确时，自动通过 Supervisor API 和目录扫描识别原版 MA。
   official_slug:
     name: 原版 MA 标识 (slug)
-    description: 原版 MA 的 slug，例如 core_music_assistant 或 d6faf732_music_assistant。
+    description: 可留空。留空时优先自动识别；识别失败时再手动填写，例如 d6faf732_music_assistant。
   force_overwrite_on_import:
     name: 强制覆盖当前配置
     description: 导入时允许覆盖当前 /data。仅在确认已备份后使用。

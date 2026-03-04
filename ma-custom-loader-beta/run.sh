@@ -51,7 +51,7 @@ is_true() {
 
 import_official_config="$(read_option bool import_official_config false)"
 auto_detect_official_slug="$(read_option bool auto_detect_official_slug true)"
-official_slug="$(read_option str official_slug core_music_assistant)"
+official_slug="$(read_option str official_slug "")"
 force_overwrite_on_import="$(read_option bool force_overwrite_on_import false)"
 strict_provider_injection="$(read_option bool strict_provider_injection false)"
 migration_marker="/data/.official_import_done"
@@ -90,19 +90,31 @@ find_source_dir_by_slug() {
 }
 
 discover_slug_from_supervisor() {
-  if [[ -z "${SUPERVISOR_TOKEN:-}" ]] || ! command -v curl >/dev/null 2>&1; then
+  local addons_json=""
+  if [[ -z "${SUPERVISOR_TOKEN:-}" ]]; then
+    echo "Auto-detect: SUPERVISOR_TOKEN is missing, skip Supervisor API lookup." >&2
     return 1
   fi
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "Auto-detect: curl is unavailable, skip Supervisor API lookup." >&2
+    return 1
+  fi
+  addons_json="$(
   curl -fsSL \
     -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
     -H "Content-Type: application/json" \
-    "http://supervisor/addons" 2>/dev/null \
-    | python3 - <<'PY'
+    "http://supervisor/addons" 2>/dev/null
+  )" || {
+    echo "Auto-detect: Supervisor API request failed." >&2
+    return 1
+  }
+  ADDONS_JSON="${addons_json}" python3 - <<'PY'
 import json
-import sys
+import os
+import re
 
 try:
-    payload = json.load(sys.stdin)
+    payload = json.loads(os.environ.get("ADDONS_JSON", ""))
 except Exception:
     raise SystemExit(1)
 
@@ -115,6 +127,8 @@ for addon in addons:
     if "music_assistant" not in lower_slug:
         continue
     if "custom_loader" in lower_slug or "custom-loader" in lower_slug:
+        continue
+    if re.search(r"(^|_)beta($|_)", lower_slug):
         continue
     print(slug)
     raise SystemExit(0)
@@ -155,13 +169,9 @@ if is_true "${import_official_config}"; then
     echo "Official config import requested."
     source_dir=""
 
-    # Step 1: exact match by configured slug.
-    if source_dir="$(find_source_dir_by_slug "${official_slug}" 2>/dev/null)"; then
-      echo "Found source by configured slug: ${official_slug}"
-    fi
-
-    # Step 2: fallback auto-detection when exact match is unavailable.
+    # Step 1: auto-detect first (recommended).
     if [[ -z "${source_dir}" ]] && is_true "${auto_detect_official_slug}"; then
+      echo "Trying auto-detect for official MA slug..."
       detected_slug="$(discover_slug_from_supervisor || true)"
       if [[ -n "${detected_slug}" ]]; then
         source_dir="$(find_source_dir_by_slug "${detected_slug}" 2>/dev/null || true)"
@@ -181,11 +191,22 @@ if is_true "${import_official_config}"; then
           fi
         fi
       fi
+    elif [[ -z "${source_dir}" ]]; then
+      echo "Auto-detect is disabled."
+    fi
+
+    # Step 2: configured slug fallback.
+    if [[ -z "${source_dir}" ]] && [[ -n "${official_slug}" ]]; then
+      source_dir="$(find_source_dir_by_slug "${official_slug}" 2>/dev/null || true)"
+      if [[ -n "${source_dir}" ]]; then
+        echo "Found source by configured slug fallback: ${official_slug}"
+      fi
     fi
 
     if [[ -z "${source_dir}" ]]; then
-      echo "WARNING: official add-on data folder not found for slug '${official_slug}'. Skipping import."
-      echo "Try setting 'official_slug' explicitly, or keep 'auto_detect_official_slug: true'."
+      echo "WARNING: official add-on data folder not found. Skipping import."
+      echo "Checked auto-detect and configured slug fallback."
+      echo "Tips: keep auto_detect_official_slug=true and leave official_slug empty, or set real slug manually."
     else
       mapfile -t target_entries < <(find /data -mindepth 1 -maxdepth 1 2>/dev/null || true)
       if [[ "${#target_entries[@]}" -gt 0 ]] && ! is_true "${force_overwrite_on_import}"; then
