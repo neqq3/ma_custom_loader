@@ -56,39 +56,6 @@ force_overwrite_on_import="$(read_option bool force_overwrite_on_import false)"
 strict_provider_injection="$(read_option bool strict_provider_injection false)"
 migration_marker="/data/.official_import_done"
 
-find_source_dir_by_slug() {
-  local slug="$1"
-  local base=""
-  local candidate=""
-  local path=""
-  for base in /addon_configs /data/addons/data /mnt/data/supervisor/addons/data; do
-    [[ -d "${base}" ]] || continue
-
-    # Exact folder name match.
-    candidate="${base}/${slug}"
-    if [[ -d "${candidate}" ]]; then
-      echo "${candidate}"
-      return 0
-    fi
-
-    # Common prefixed form used by some environments.
-    candidate="${base}/addon_${slug}"
-    if [[ -d "${candidate}" ]]; then
-      echo "${candidate}"
-      return 0
-    fi
-
-    # Repo-hash prefix form like addon_<repohash>_<slug>.
-    for path in "${base}"/addon_*_"${slug}"; do
-      if [[ -d "${path}" ]]; then
-        echo "${path}"
-        return 0
-      fi
-    done
-  done
-  return 1
-}
-
 discover_slug_from_supervisor() {
   if [[ -z "${SUPERVISOR_TOKEN:-}" ]]; then
     echo "Auto-detect: SUPERVISOR_TOKEN is missing, skip Supervisor API lookup." >&2
@@ -137,51 +104,6 @@ for addon in addons:
 raise SystemExit(1)
 PY
 }
-
-log_import_probe() {
-  local base=""
-  local found_any="false"
-  for base in /addon_configs /data/addons/data /mnt/data/supervisor/addons/data; do
-    if [[ -d "${base}" ]]; then
-      found_any="true"
-      echo "Import probe: found base dir ${base}"
-      find "${base}" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sed -n '1,8p' | while read -r entry; do
-        echo "  - $(basename "${entry}")"
-      done
-    else
-      echo "Import probe: base dir not visible ${base}"
-    fi
-  done
-  if [[ "${found_any}" != "true" ]]; then
-    echo "Import probe: no add-on data base directories are visible in this container."
-  fi
-}
-
-discover_slug_from_filesystem() {
-  local base=""
-  local path=""
-  local slug=""
-  shopt -s nullglob
-  for base in /addon_configs /data/addons/data /mnt/data/supervisor/addons/data; do
-    [[ -d "${base}" ]] || continue
-    for path in "${base}"/*; do
-      [[ -d "${path}" ]] || continue
-      slug="$(basename "${path}")"
-      case "${slug,,}" in
-        *music_assistant*)
-          if [[ "${slug,,}" != *custom_loader* && "${slug,,}" != *custom-loader* ]]; then
-            echo "${slug}"
-            shopt -u nullglob
-            return 0
-          fi
-          ;;
-      esac
-    done
-  done
-  shopt -u nullglob
-  return 1
-}
-
 
 import_from_supervisor_backup() {
   local addon_slug="$1"
@@ -332,22 +254,35 @@ write_migration_index() {
   local official_backup_slug="$4"
 
   cat > "${backup_root}/README.txt" <<EOF
-Music Assistant migration index
+[EN] Music Assistant migration index
+[CN] Music Assistant 迁移备份索引
 
 Timestamp: $(date '+%Y-%m-%d %H:%M:%S')
 Source add-on slug: ${source_slug}
 Migration method: ${method}
 Official backup slug (HA /backup): ${official_backup_slug}
 
-Notes:
+=== 📝 Notes (说明) ===
+[EN]
 - Real restore archives are managed by Home Assistant Supervisor under /backup.
 - This folder stores migration metadata and local troubleshooting snapshots only.
 - Deleting this folder does NOT delete the real HA backup archive in /backup.
 - Local loader snapshot before import: ${backup_root}/loader_before_import
 
-Rollback hints:
+[CN]
+- 真正的原版备份压缩包由 HA 系统自动管理，保存在 /backup 目录下。
+- 当前这个共享文件夹，仅仅用于存放迁移日志和改版的本地快照备份。
+- 就算你删除了这个共享文件夹，也绝对不会影响 /backup 里的官方真备份！
+- 在导入原版配置前，改版之前的旧数据已经被自动快照存放在了本目录的 loader_before_import 文件夹中。
+
+=== 回滚指南 ===
+[EN]
 - Restore official MA state: restore the HA backup using the backup slug above.
 - Restore loader pre-import local snapshot: copy files from loader_before_import back to /data.
+
+[CN]
+- 想要回滚到没迁移前的官方原版 MA：直接去 HA 界面 [设置] -> [系统] -> [备份]，找到对应时间的备份进行还原即可。
+- 想要回滚刚被覆盖掉的本改版插件数据：用 Samba 从本目录的 loader_before_import 文件夹把东西全覆盖回 /addon_configs 对应的本改版数据目录里。
 EOF
 }
 
@@ -368,22 +303,17 @@ if is_true "${import_official_config}"; then
       echo "Backing up current loader data -> ${backup_root}/loader_before_import"
       cp -a /data "${backup_root}/loader_before_import"
 
-      source_dir=""
       detected_slug=""
       import_method=""
 
-      if is_true "${auto_detect_official_slug}"; then
-        echo "Trying auto-detect for official MA slug..."
+      # Step 1: Resolve official MA slug.
+      if [[ -n "${official_slug}" ]]; then
+        echo "Using manually configured official_slug: ${official_slug}"
+      elif is_true "${auto_detect_official_slug}"; then
+        echo "Trying auto-detect for official MA slug via Supervisor API..."
         detected_slug="$(discover_slug_from_supervisor || true)"
         if [[ -n "${detected_slug}" ]]; then
           echo "Detected official slug via Supervisor API: ${detected_slug}"
-          official_slug="${detected_slug}"
-        fi
-      fi
-      if [[ -z "${official_slug}" ]] && is_true "${auto_detect_official_slug}"; then
-        detected_slug="$(discover_slug_from_filesystem || true)"
-        if [[ -n "${detected_slug}" ]]; then
-          echo "Detected official slug via filesystem scan: ${detected_slug}"
           official_slug="${detected_slug}"
         fi
       fi
@@ -391,31 +321,15 @@ if is_true "${import_official_config}"; then
         echo "Auto-detect did not return a slug. You may set 'official_slug' manually."
       fi
 
+      # Step 2: Migrate via Supervisor Backup API.
       if [[ -n "${official_slug}" ]]; then
-        source_dir="$(find_source_dir_by_slug "${official_slug}" 2>/dev/null || true)"
-      fi
-
-      if [[ -n "${source_dir}" ]]; then
-        echo "Found official add-on data directory: ${source_dir}"
-        echo "Backing up visible official source data -> ${backup_root}/official_source"
-        cp -a "${source_dir}" "${backup_root}/official_source"
-
-        if is_true "${force_overwrite_on_import}"; then
-          echo "Clearing existing loader /data before import..."
-          find /data -mindepth 1 -maxdepth 1 ! -name 'options.json' -exec rm -rf {} +
-        fi
-
-        echo "Importing official MA config from '${source_dir}' to '/data'..."
-        cp -a "${source_dir}/." /data/
-        import_method="visible_dir_copy"
-      else
-        echo "Visible official addon data directory not found. Falling back to Supervisor backup migration..."
-        log_import_probe
+        echo "Starting migration via Supervisor Backup API..."
         if import_from_supervisor_backup "${official_slug}" "${backup_root}" "${force_overwrite_on_import}"; then
           import_method="supervisor_backup_api"
         fi
       fi
 
+      # Step 3: Write migration metadata.
       if [[ -n "${import_method}" ]]; then
         official_backup_slug="$(head -n 1 "${backup_root}/supervisor_backup_slug.txt" 2>/dev/null || true)"
         write_migration_index "${backup_root}" "${official_slug}" "${import_method}" "${official_backup_slug}"

@@ -7,13 +7,14 @@ configuration:
     description: If enabled, startup fails when MA providers directory cannot be resolved.
   import_official_config:
     name: Import Official MA Config
-    description: Run one-time migration; uses visible data dir first, then Supervisor Backup API fallback.
+    description: Automatically migrate data from the official MA add-on on startup. For safety, the official MA is never modified or stopped.
   auto_detect_official_slug:
     name: Auto Detect Official MA Slug
-    description: If official_slug is invalid, try Supervisor API and filesystem scan automatically.
+    description: Automatically find the official MA via Supervisor. Keep this enabled in most cases.
   official_slug:
     name: Official MA Slug
-    description: Optional. Leave empty to prefer auto-detection; set manually only if detection fails.
+    description: Manual value has highest priority. Auto-detect runs only when this field is empty (e.g., d6faf732_music_assistant).
   force_overwrite_on_import:
-    name: Force Overwrite During Import
-    description: Allow replacing current /data during import. Use only after backup.
+    name: Force Overwrite Current Config (DANGER)
+    description: Allow overwriting existing /data. HIGHLY RECOMMENDED: Create a manual backup of THIS add-on in HA before enabling!
+
