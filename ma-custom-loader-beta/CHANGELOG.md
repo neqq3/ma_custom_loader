@@ -5,6 +5,7 @@
 - Add Supervisor Backup API migration fallback when direct addon data path is not visible.
 - Keep migration safety guards: one-time marker, backup-first flow, and optional overwrite.
 - Continue startup even if migration fails, so plugin loading is unaffected.
+- Write migration index README under /share and persist official backup slug in marker for rollback traceability.
 
 ## 2.7.10-beta.3
 
@@ -29,3 +30,4 @@
 - Initial release.
 - Support for loading custom plugins from `/share/music_assistant/custom_providers`.
 - Multi-arch support (`amd64`, `aarch64`).
+

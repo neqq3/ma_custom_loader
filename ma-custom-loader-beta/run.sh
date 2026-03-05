@@ -182,6 +182,7 @@ discover_slug_from_filesystem() {
   return 1
 }
 
+
 import_from_supervisor_backup() {
   local addon_slug="$1"
   local backup_root="$2"
@@ -248,7 +249,11 @@ created = request_json(
     "http://supervisor/backups/new/partial",
     token,
     method="POST",
-    body={"name": f"ma_custom_loader_migration_{addon_slug}", "addons": [addon_slug], "homeassistant": False},
+    body={
+        "name": "[MA Custom Loader] \u539f\u7248MA\u914d\u7f6e(\u8fc1\u79fb\u524d\u81ea\u52a8\u5907\u4efd) / Original Backup",
+        "addons": [addon_slug],
+        "homeassistant": False,
+    },
 )
 backup_slug = str(created.get("data", {}).get("slug", "")).strip()
 if not backup_slug:
@@ -320,6 +325,32 @@ PY
   return 0
 }
 
+write_migration_index() {
+  local backup_root="$1"
+  local source_slug="$2"
+  local method="$3"
+  local official_backup_slug="$4"
+
+  cat > "${backup_root}/README.txt" <<EOF
+Music Assistant migration index
+
+Timestamp: $(date '+%Y-%m-%d %H:%M:%S')
+Source add-on slug: ${source_slug}
+Migration method: ${method}
+Official backup slug (HA /backup): ${official_backup_slug}
+
+Notes:
+- Real restore archives are managed by Home Assistant Supervisor under /backup.
+- This folder stores migration metadata and local troubleshooting snapshots only.
+- Deleting this folder does NOT delete the real HA backup archive in /backup.
+- Local loader snapshot before import: ${backup_root}/loader_before_import
+
+Rollback hints:
+- Restore official MA state: restore the HA backup using the backup slug above.
+- Restore loader pre-import local snapshot: copy files from loader_before_import back to /data.
+EOF
+}
+
 if is_true "${import_official_config}"; then
   if [[ -f "${migration_marker}" ]]; then
     echo "Official config import is enabled but already completed before. Skipping."
@@ -386,11 +417,14 @@ if is_true "${import_official_config}"; then
       fi
 
       if [[ -n "${import_method}" ]]; then
+        official_backup_slug="$(head -n 1 "${backup_root}/supervisor_backup_slug.txt" 2>/dev/null || true)"
+        write_migration_index "${backup_root}" "${official_slug}" "${import_method}" "${official_backup_slug}"
         {
           echo "timestamp=${timestamp}"
           echo "source_slug=${official_slug}"
           echo "backup_root=${backup_root}"
           echo "method=${import_method}"
+          echo "official_backup_slug=${official_backup_slug}"
         } > "${migration_marker}"
         echo "Official config import completed successfully (method: ${import_method})."
       else
