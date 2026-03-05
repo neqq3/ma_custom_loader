@@ -1,0 +1,19 @@
+configuration:
+  log_level:
+    name: 日志级别
+    description: 控制加载器日志输出级别。
+  strict_provider_injection:
+    name: 严格插件注入
+    description: 开启后，如果无法定位 MA 内部 providers 目录，将直接启动失败。
+  import_official_config:
+    name: 导入原版 MA 配置
+    description: 启动时自动从官方版 MA 完整迁移数据。安全起见，官方版 MA 及其数据不会被修改或停止。
+  auto_detect_official_slug:
+    name: 自动识别原版 MA 标识
+    description: 仅在 official_slug 留空时，通过 Supervisor 自动识别原版 MA。
+  official_slug:
+    name: 原版 MA 标识 (slug)
+    description: 手动指定原版 MA 的 slug。手填值优先级最高；仅在留空且开启自动识别时才会自动探测。
+  force_overwrite_on_import:
+    name: 强制覆盖当前配置（危险）
+    description: 当已有数据时，强行用原版数据覆盖当前 /data。强烈建议先在 HA 中为本加载项创建手动备份。

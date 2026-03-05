@@ -193,7 +193,7 @@ with tempfile.TemporaryDirectory(prefix="ma_migrate_") as tmp:
     outer_dir = tmp_path / "outer"
     outer_dir.mkdir(parents=True, exist_ok=True)
     with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r:*") as tf:
-        tf.extractall(outer_dir)
+        tf.extractall(outer_dir, filter="data")
 
     nested_archives = [
         p for p in outer_dir.rglob("*")
@@ -207,7 +207,7 @@ with tempfile.TemporaryDirectory(prefix="ma_migrate_") as tmp:
     addon_dir = tmp_path / "addon"
     addon_dir.mkdir(parents=True, exist_ok=True)
     with tarfile.open(addon_archive, mode="r:*") as tf:
-        tf.extractall(addon_dir)
+        tf.extractall(addon_dir, filter="data")
 
     source_data = addon_dir / "data"
     if not source_data.is_dir():

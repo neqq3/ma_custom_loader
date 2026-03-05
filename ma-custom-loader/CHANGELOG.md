@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.7.10.1
+
+- Upstream MA: 2.7.10
+- Merge beta-validated migration features into stable channel:
+  - One-time official config import via Supervisor Backup API.
+  - Manual `official_slug` priority; auto-detect only when empty.
+  - Safe overwrite guard and pre-import local snapshot.
+  - Strict/optional provider injection behavior toggle.
+- Add stable translations for new configuration options.
+
 ## 2.7.10
 
 - Upstream MA: 2.7.10

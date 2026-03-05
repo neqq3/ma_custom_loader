@@ -1,0 +1,19 @@
+configuration:
+  log_level:
+    name: Log Level
+    description: Controls loader logging verbosity.
+  strict_provider_injection:
+    name: Strict Provider Injection
+    description: If enabled, startup fails when MA providers directory cannot be resolved.
+  import_official_config:
+    name: Import Official MA Config
+    description: Automatically migrate data from the official MA add-on on startup. For safety, the official MA is never modified or stopped.
+  auto_detect_official_slug:
+    name: Auto Detect Official MA Slug
+    description: Automatically find the official MA via Supervisor. Keep this enabled in most cases.
+  official_slug:
+    name: Official MA Slug
+    description: Manual value has highest priority. Auto-detect runs only when this field is empty (e.g., d6faf732_music_assistant).
+  force_overwrite_on_import:
+    name: Force Overwrite Current Config (DANGER)
+    description: Allow overwriting existing /data. HIGHLY RECOMMENDED: Create a manual backup of THIS add-on in HA before enabling!
