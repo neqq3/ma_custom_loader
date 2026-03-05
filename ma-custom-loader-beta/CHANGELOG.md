@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 2.7.10-beta.3
+
+- Use `all_addon_configs:ro` mapping for safe visibility test of add-on data directories under `/addon_configs`.
+- Keep migration auto-detection and diagnostics; this release targets the "no visible base dir" migration failure.
+
 ## 2.7.10-beta.2
 
 - Fix Supervisor API auto-detection to avoid external curl dependency.
