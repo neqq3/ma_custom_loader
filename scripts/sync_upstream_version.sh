@@ -34,30 +34,47 @@ if [[ -z "${current_version}" ]]; then
 fi
 
 current_build_from="$(sed -n 's/^ARG BUILD_FROM=\(.*\)$/\1/p' "${DOCKERFILE}")"
-current_label_version="$(sed -n 's/.*io\.hass\.version=\"\(.*\)\"/\1/p' "${DOCKERFILE}")"
+current_upstream_version="$(sed -n 's/^upstream_version: "\(.*\)"/\1/p' "${ADDON_CONFIG}" || true)"
 target_build_from="ghcr.io/music-assistant/server:${latest_version}"
 
 echo "Current add-on version: ${current_version}"
+echo "Current upstream_version: ${current_upstream_version:-<missing>}"
 echo "Latest upstream version: ${latest_version}"
 echo "Current Docker BUILD_FROM: ${current_build_from}"
 echo "Target Docker BUILD_FROM: ${target_build_from}"
 
-if [[ \
-  "${current_version}" == "${latest_version}" \
-  && "${current_build_from}" == "${target_build_from}" \
-  && "${current_label_version}" == "${latest_version}" \
-]]; then
+# Do not overwrite manual patch versions when upstream base did not change.
+if [[ "${current_build_from}" == "${target_build_from}" ]]; then
   if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     {
       echo "changed=false"
       echo "version=${current_version}"
     } >> "${GITHUB_OUTPUT}"
   fi
-  echo "No version update needed."
+  echo "No upstream base update needed. Keep current add-on version: ${current_version}"
   exit 0
 fi
 
-sed -E -i "s/^version: \".*\"$/version: \"${latest_version}\"/" "${ADDON_CONFIG}"
+python3 - "${ADDON_CONFIG}" "${latest_version}" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+config = Path(sys.argv[1])
+latest = sys.argv[2]
+text = config.read_text(encoding='utf-8')
+
+# Always sync stable add-on version to latest upstream on upstream release.
+text = re.sub(r'^version:\s*".*"$', f'version: "{latest}"', text, flags=re.M)
+
+if re.search(r'^upstream_version:\s*".*"$', text, flags=re.M):
+    text = re.sub(r'^upstream_version:\s*".*"$', f'upstream_version: "{latest}"', text, flags=re.M)
+else:
+    text = re.sub(r'^(version:\s*".*"\n)', r'\1' + f'upstream_version: "{latest}"\n', text, count=1, flags=re.M)
+
+config.write_text(text, encoding='utf-8', newline='\n')
+PY
+
 sed -E -i "s#^ARG BUILD_FROM=.*#ARG BUILD_FROM=ghcr.io/music-assistant/server:${latest_version}#" "${DOCKERFILE}"
 sed -E -i "s/(io\.hass\.version=\").*(\")/\1${latest_version}\2/" "${DOCKERFILE}"
 
@@ -68,4 +85,4 @@ if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   } >> "${GITHUB_OUTPUT}"
 fi
 
-echo "Updated add-on version to ${latest_version}."
+echo "Updated upstream base and stable add-on version to ${latest_version}."

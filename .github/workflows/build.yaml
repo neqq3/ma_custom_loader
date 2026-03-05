@@ -83,10 +83,29 @@ jobs:
             echo "ERROR: failed to read version from ma-custom-loader/config.yaml" >&2
             exit 1
           fi
+          BUILD_FROM="$(sed -n 's/^ARG BUILD_FROM=\(.*\)$/\1/p' ma-custom-loader/Dockerfile)"
+          if [ -z "$BUILD_FROM" ]; then
+            echo "ERROR: failed to read BUILD_FROM from ma-custom-loader/Dockerfile" >&2
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "build_from=ghcr.io/music-assistant/server:$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Resolved version: $VERSION"
+          echo "build_from=$BUILD_FROM" >> "$GITHUB_OUTPUT"
+          echo "Resolved stable version: $VERSION"
+          echo "Resolved stable BUILD_FROM: $BUILD_FROM"
 
+      - name: Validate stable version metadata consistency
+        run: |
+          CONFIG_VERSION="$(sed -n 's/^version: "\(.*\)"/\1/p' ma-custom-loader/config.yaml)"
+          LABEL_VERSION="$(sed -n 's/.*io\.hass\.version="\(.*\)"/\1/p' ma-custom-loader/Dockerfile)"
+          if [ -z "$CONFIG_VERSION" ] || [ -z "$LABEL_VERSION" ]; then
+            echo "ERROR: failed to read CONFIG_VERSION or LABEL_VERSION" >&2
+            exit 1
+          fi
+          if [ "$CONFIG_VERSION" != "$LABEL_VERSION" ]; then
+            echo "ERROR: version mismatch: config.yaml=$CONFIG_VERSION, Dockerfile label=$LABEL_VERSION" >&2
+            exit 1
+          fi
+          echo "Stable version metadata is consistent: $CONFIG_VERSION"
       - name: Preflight upstream compatibility check
         if: github.event_name != 'schedule' || steps.sync.outputs.changed == 'true'
         run: |
