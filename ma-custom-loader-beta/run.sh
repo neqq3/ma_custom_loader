@@ -295,7 +295,7 @@ if is_true "${import_official_config}"; then
     backup_root="/share/music_assistant/migration_backups/${timestamp}"
     mkdir -p "${backup_root}"
 
-    mapfile -t target_entries < <(find /data -mindepth 1 -maxdepth 1 2>/dev/null || true)
+    mapfile -t target_entries < <(find /data -mindepth 1 -maxdepth 1 ! -name 'options.json' ! -name '.official_import_done' 2>/dev/null || true)
     if [[ "${#target_entries[@]}" -gt 0 ]] && ! is_true "${force_overwrite_on_import}"; then
       echo "WARNING: loader /data is not empty. Import skipped to avoid overwrite."
       echo "If you need to overwrite, set 'force_overwrite_on_import: true' once."
