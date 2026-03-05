@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 2.7.10-beta.4
+
+- Add Supervisor Backup API migration fallback when direct addon data path is not visible.
+- Keep migration safety guards: one-time marker, backup-first flow, and optional overwrite.
+- Continue startup even if migration fails, so plugin loading is unaffected.
+
 ## 2.7.10-beta.3
 
 - Use `all_addon_configs:ro` mapping for safe visibility test of add-on data directories under `/addon_configs`.

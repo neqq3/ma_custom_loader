@@ -182,84 +182,219 @@ discover_slug_from_filesystem() {
   return 1
 }
 
+import_from_supervisor_backup() {
+  local addon_slug="$1"
+  local backup_root="$2"
+  local force_flag="$3"
+
+  if [[ -z "${addon_slug}" ]]; then
+    echo "Supervisor backup import: empty addon slug, skip."
+    return 1
+  fi
+  if [[ -z "${SUPERVISOR_TOKEN:-}" ]]; then
+    echo "Supervisor backup import: SUPERVISOR_TOKEN is missing, skip."
+    return 1
+  fi
+
+  echo "Trying migration via Supervisor Backup API for addon slug: ${addon_slug}"
+  if ! ADDON_SLUG="${addon_slug}" BACKUP_ROOT="${backup_root}" FORCE_IMPORT="${force_flag}" SUPERVISOR_TOKEN="${SUPERVISOR_TOKEN}" python3 - <<'PY'
+import io
+import json
+import os
+import pathlib
+import shutil
+import tarfile
+import tempfile
+import urllib.request
+
+def request_json(url: str, token: str, method: str = "GET", body: dict | None = None) -> dict:
+    data = None
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    if body is not None:
+        data = json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        payload = json.loads(resp.read().decode("utf-8"))
+    if payload.get("result") != "ok":
+        raise RuntimeError(f"Supervisor API returned non-ok result for {url}")
+    return payload
+
+def download_backup(url: str, token: str) -> bytes:
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"}, method="GET")
+    with urllib.request.urlopen(req, timeout=300) as resp:
+        return resp.read()
+
+def copy_tree(src: pathlib.Path, dst: pathlib.Path) -> None:
+    for item in src.iterdir():
+        if item.name == "options.json":
+            continue
+        target = dst / item.name
+        if item.is_dir():
+            if target.exists() and target.is_file():
+                target.unlink()
+            target.mkdir(parents=True, exist_ok=True)
+            copy_tree(item, target)
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(item, target)
+
+token = os.environ["SUPERVISOR_TOKEN"]
+addon_slug = os.environ["ADDON_SLUG"]
+backup_root = pathlib.Path(os.environ["BACKUP_ROOT"])
+force_import = os.environ.get("FORCE_IMPORT", "false").lower() in {"1", "true", "yes", "on"}
+target_data = pathlib.Path("/data")
+
+created = request_json(
+    "http://supervisor/backups/new/partial",
+    token,
+    method="POST",
+    body={"name": f"ma_custom_loader_migration_{addon_slug}", "addons": [addon_slug], "homeassistant": False},
+)
+backup_slug = str(created.get("data", {}).get("slug", "")).strip()
+if not backup_slug:
+    raise RuntimeError("Failed to create backup: missing backup slug")
+
+archive_bytes = download_backup(f"http://supervisor/backups/{backup_slug}/download", token)
+if not archive_bytes:
+    raise RuntimeError("Downloaded backup archive is empty")
+
+backup_root.mkdir(parents=True, exist_ok=True)
+(backup_root / "supervisor_backup_slug.txt").write_text(backup_slug + "\n", encoding="utf-8")
+
+with tempfile.TemporaryDirectory(prefix="ma_migrate_") as tmp:
+    tmp_path = pathlib.Path(tmp)
+    outer_dir = tmp_path / "outer"
+    outer_dir.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r:*") as tf:
+        tf.extractall(outer_dir)
+
+    nested_archives = [
+        p for p in outer_dir.rglob("*")
+        if p.is_file() and (p.name.endswith(".tar") or p.name.endswith(".tar.gz") or p.name.endswith(".tgz"))
+    ]
+    if not nested_archives:
+        raise RuntimeError("No nested addon archive found in backup payload")
+    nested_archives.sort(key=lambda p: (addon_slug.lower() not in p.name.lower(), len(p.name)))
+    addon_archive = nested_archives[0]
+
+    addon_dir = tmp_path / "addon"
+    addon_dir.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(addon_archive, mode="r:*") as tf:
+        tf.extractall(addon_dir)
+
+    source_data = addon_dir / "data"
+    if not source_data.is_dir():
+        source_data = addon_dir
+    if not any(source_data.iterdir()):
+        raise RuntimeError("Extracted addon data is empty")
+
+    if force_import:
+        for child in target_data.iterdir():
+            if child.name in {"options.json", ".official_import_done"}:
+                continue
+            if child.is_dir():
+                shutil.rmtree(child)
+            else:
+                child.unlink(missing_ok=True)
+
+    copy_tree(source_data, target_data)
+    (backup_root / "supervisor_import_meta.json").write_text(
+        json.dumps(
+            {
+                "method": "supervisor_backup_api",
+                "addon_slug": addon_slug,
+                "backup_slug": backup_slug,
+                "archive_name": addon_archive.name,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+print(f"Supervisor backup import succeeded: addon={addon_slug}")
+PY
+  then
+    echo "WARNING: Supervisor backup import failed."
+    return 1
+  fi
+  return 0
+}
+
 if is_true "${import_official_config}"; then
   if [[ -f "${migration_marker}" ]]; then
     echo "Official config import is enabled but already completed before. Skipping."
   else
     echo "Official config import requested."
-    source_dir=""
+    timestamp="$(date +%Y%m%d_%H%M%S)"
+    backup_root="/share/music_assistant/migration_backups/${timestamp}"
+    mkdir -p "${backup_root}"
 
-    # Step 1: auto-detect first (recommended).
-    if [[ -z "${source_dir}" ]] && is_true "${auto_detect_official_slug}"; then
-      echo "Trying auto-detect for official MA slug..."
-      detected_slug="$(discover_slug_from_supervisor || true)"
-      if [[ -n "${detected_slug}" ]]; then
-        source_dir="$(find_source_dir_by_slug "${detected_slug}" 2>/dev/null || true)"
-        if [[ -n "${source_dir}" ]]; then
+    mapfile -t target_entries < <(find /data -mindepth 1 -maxdepth 1 2>/dev/null || true)
+    if [[ "${#target_entries[@]}" -gt 0 ]] && ! is_true "${force_overwrite_on_import}"; then
+      echo "WARNING: loader /data is not empty. Import skipped to avoid overwrite."
+      echo "If you need to overwrite, set 'force_overwrite_on_import: true' once."
+    else
+      echo "Backing up current loader data -> ${backup_root}/loader_before_import"
+      cp -a /data "${backup_root}/loader_before_import"
+
+      source_dir=""
+      detected_slug=""
+      import_method=""
+
+      if is_true "${auto_detect_official_slug}"; then
+        echo "Trying auto-detect for official MA slug..."
+        detected_slug="$(discover_slug_from_supervisor || true)"
+        if [[ -n "${detected_slug}" ]]; then
           echo "Detected official slug via Supervisor API: ${detected_slug}"
           official_slug="${detected_slug}"
         fi
       fi
-
-      if [[ -z "${source_dir}" ]]; then
+      if [[ -z "${official_slug}" ]] && is_true "${auto_detect_official_slug}"; then
         detected_slug="$(discover_slug_from_filesystem || true)"
         if [[ -n "${detected_slug}" ]]; then
-          source_dir="$(find_source_dir_by_slug "${detected_slug}" 2>/dev/null || true)"
-          if [[ -n "${source_dir}" ]]; then
-            echo "Detected official slug via filesystem scan: ${detected_slug}"
-            official_slug="${detected_slug}"
-          fi
+          echo "Detected official slug via filesystem scan: ${detected_slug}"
+          official_slug="${detected_slug}"
         fi
       fi
-    elif [[ -z "${source_dir}" ]]; then
-      echo "Auto-detect is disabled."
-    fi
-
-    # Step 2: configured slug fallback.
-    if [[ -z "${source_dir}" ]] && [[ -n "${official_slug}" ]]; then
-      source_dir="$(find_source_dir_by_slug "${official_slug}" 2>/dev/null || true)"
-      if [[ -n "${source_dir}" ]]; then
-        echo "Found source by configured slug fallback: ${official_slug}"
+      if [[ -z "${official_slug}" ]]; then
+        echo "Auto-detect did not return a slug. You may set 'official_slug' manually."
       fi
-    fi
 
-    if [[ -z "${source_dir}" ]]; then
-      echo "WARNING: official add-on data folder not found. Skipping import."
-      echo "Checked auto-detect and configured slug fallback."
-      echo "Tips: keep auto_detect_official_slug=true and leave official_slug empty, or set real slug manually."
-      log_import_probe
-    else
-      mapfile -t target_entries < <(find /data -mindepth 1 -maxdepth 1 2>/dev/null || true)
-      if [[ "${#target_entries[@]}" -gt 0 ]] && ! is_true "${force_overwrite_on_import}"; then
-        echo "WARNING: loader /data is not empty. Import skipped to avoid overwrite."
-        echo "If you need to overwrite, set 'force_overwrite_on_import: true' once."
-      else
-        timestamp="$(date +%Y%m%d_%H%M%S)"
-        backup_root="/share/music_assistant/migration_backups/${timestamp}"
-        mkdir -p "${backup_root}"
+      if [[ -n "${official_slug}" ]]; then
+        source_dir="$(find_source_dir_by_slug "${official_slug}" 2>/dev/null || true)"
+      fi
 
-        echo "Backing up official source data -> ${backup_root}/official_source"
+      if [[ -n "${source_dir}" ]]; then
+        echo "Found official add-on data directory: ${source_dir}"
+        echo "Backing up visible official source data -> ${backup_root}/official_source"
         cp -a "${source_dir}" "${backup_root}/official_source"
-
-        echo "Backing up current loader data -> ${backup_root}/loader_before_import"
-        cp -a /data "${backup_root}/loader_before_import"
 
         if is_true "${force_overwrite_on_import}"; then
           echo "Clearing existing loader /data before import..."
-          find /data -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          find /data -mindepth 1 -maxdepth 1 ! -name 'options.json' -exec rm -rf {} +
         fi
 
         echo "Importing official MA config from '${source_dir}' to '/data'..."
         cp -a "${source_dir}/." /data/
+        import_method="visible_dir_copy"
+      else
+        echo "Visible official addon data directory not found. Falling back to Supervisor backup migration..."
+        log_import_probe
+        if import_from_supervisor_backup "${official_slug}" "${backup_root}" "${force_overwrite_on_import}"; then
+          import_method="supervisor_backup_api"
+        fi
+      fi
 
+      if [[ -n "${import_method}" ]]; then
         {
           echo "timestamp=${timestamp}"
           echo "source_slug=${official_slug}"
-          echo "source_dir=${source_dir}"
           echo "backup_root=${backup_root}"
+          echo "method=${import_method}"
         } > "${migration_marker}"
-
-        echo "Official config import completed successfully."
+        echo "Official config import completed successfully (method: ${import_method})."
+      else
+        echo "WARNING: Official config import failed. Continuing startup without migration."
       fi
     fi
   fi

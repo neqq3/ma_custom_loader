@@ -1,4 +1,4 @@
-configuration:
+﻿configuration:
   log_level:
     name: 日志级别
     description: 控制加载器日志输出级别。
@@ -7,7 +7,7 @@ configuration:
     description: 开启后，如果无法定位 MA 内部 providers 目录，将直接启动失败。
   import_official_config:
     name: 导入原版 MA 配置
-    description: 启动时执行一次性迁移，将原版 MA 配置导入到当前加载版。
+    description: 执行一次性迁移：优先读取可见目录，失败后自动尝试 Supervisor 备份迁移。
   auto_detect_official_slug:
     name: 自动识别原版 MA 标识
     description: 当 official_slug 不正确时，自动通过 Supervisor API 和目录扫描识别原版 MA。

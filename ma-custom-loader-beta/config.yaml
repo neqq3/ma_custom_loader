@@ -1,7 +1,7 @@
 name: "Music Assistant (Custom Loader) (BETA)"
 description: "BETA channel for Music Assistant custom loader features. Supports loading custom plugins from /share."
 url: "https://github.com/neqq3/ma_custom_loader"
-version: "2.7.10-beta.3"
+version: "2.7.10-beta.4"
 slug: "ma-custom-loader-beta"
 ingress: true
 ingress_port: 8094

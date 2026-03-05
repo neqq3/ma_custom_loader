@@ -7,7 +7,7 @@ configuration:
     description: If enabled, startup fails when MA providers directory cannot be resolved.
   import_official_config:
     name: Import Official MA Config
-    description: Run one-time migration to import official MA configuration into this loader.
+    description: Run one-time migration; uses visible data dir first, then Supervisor Backup API fallback.
   auto_detect_official_slug:
     name: Auto Detect Official MA Slug
     description: If official_slug is invalid, try Supervisor API and filesystem scan automatically.
