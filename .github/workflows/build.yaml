@@ -436,14 +436,14 @@ jobs:
 
           cd domestic
           if [ -n "${{ secrets.ALIYUN_REGISTRY }}" ] && [ -n "${{ secrets.ALIYUN_NAMESPACE }}" ]; then
-            sed -i "s|ghcr.io/|${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/|g" ma-custom-loader/config.yaml
-            sed -i "s|ghcr.io/|${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/|g" ma-provider-subscriber/config.yaml
+            sed -i "s|ghcr.io/neqq3/|${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/|g" ma-custom-loader/config.yaml
+            sed -i "s|ghcr.io/neqq3/|${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/|g" ma-provider-subscriber/config.yaml
             if [ -f "ma-custom-loader-beta/config.yaml" ]; then
-              sed -i "s|ghcr.io/|${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/|g" ma-custom-loader-beta/config.yaml
+              sed -i "s|ghcr.io/neqq3/|${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/|g" ma-custom-loader-beta/config.yaml
             fi
-            echo "✅ Successfully replaced image domains with Aliyun ACR."
+            echo "Successfully replaced image domains with Aliyun ACR."
           else
-            echo "⚠️ Aliyun registry secrets missing. Image domains not modified."
+            echo "Aliyun registry secrets missing. Image domains not modified."
           fi
 
           git add .
@@ -453,3 +453,4 @@ jobs:
             git commit -m "chore: release domestic edition sync from ${{ github.sha }}"
             git push origin "$TARGET_BRANCH" || git push -u origin "$TARGET_BRANCH"
           fi
+

@@ -16,5 +16,6 @@ configuration:
     description: Manual value has highest priority. Auto-detect runs only when this field is empty (e.g., d6faf732_music_assistant).
   force_overwrite_on_import:
     name: Force Overwrite Current Config (DANGER)
-    description: Allow overwriting existing /data. HIGHLY RECOMMENDED: Create a manual backup of THIS add-on in HA before enabling!
+    description: "Allow overwriting existing /data. HIGHLY RECOMMENDED - Create a manual backup of THIS add-on in HA before enabling!"
+
 
