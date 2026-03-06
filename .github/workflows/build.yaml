@@ -381,3 +381,75 @@ jobs:
           tags: |
             ${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/${{ env.ALIYUN_IMAGE_NAME_BETA }}-${{ matrix.arch }}:latest
             ${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/${{ env.ALIYUN_IMAGE_NAME_BETA }}-${{ matrix.arch }}:${{ steps.version.outputs.version }}
+
+  publish_domestic:
+    needs: [changes, build, build_beta, build_subscriber]
+    if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check GitCode configuration
+        id: gitcode_check
+        run: |
+          if [ -n "$GITCODE_TOKEN" ] && [ -n "$GITCODE_REPO" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+          GITCODE_REPO: ${{ secrets.GITCODE_REPO }}
+
+      - name: Checkout upstream
+        if: steps.gitcode_check.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+        with:
+          path: upstream
+
+      - name: Sync and publish to GitCode
+        if: steps.gitcode_check.outputs.enabled == 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          GITCODE_REPO="${{ secrets.GITCODE_REPO }}"
+          GITCODE_USER=$(echo "$GITCODE_REPO" | cut -d'/' -f1)
+          GITCODE_URL="https://${GITCODE_USER}:${{ secrets.GITCODE_TOKEN }}@gitcode.com/${GITCODE_REPO}.git"
+
+          git clone "$GITCODE_URL" domestic || {
+            echo "Clone failed or empty repository. Initializing structure..."
+            mkdir domestic
+            cd domestic
+            git init
+            git remote add origin "$GITCODE_URL"
+            cd ..
+          }
+
+          cd domestic
+          TARGET_BRANCH="$(git ls-remote --symref origin HEAD 2>/dev/null | awk '/^ref:/ {sub("refs/heads/","",$2); print $2; exit}')"
+          if [ -z "$TARGET_BRANCH" ]; then
+            TARGET_BRANCH="main"
+          fi
+          git checkout -B "$TARGET_BRANCH"
+          cd ..
+
+          rsync -av --exclude='.git' --delete upstream/ domestic/
+
+          cd domestic
+          if [ -n "${{ secrets.ALIYUN_REGISTRY }}" ] && [ -n "${{ secrets.ALIYUN_NAMESPACE }}" ]; then
+            sed -i "s|ghcr.io/|${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/|g" ma-custom-loader/config.yaml
+            sed -i "s|ghcr.io/|${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/|g" ma-provider-subscriber/config.yaml
+            if [ -f "ma-custom-loader-beta/config.yaml" ]; then
+              sed -i "s|ghcr.io/|${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/|g" ma-custom-loader-beta/config.yaml
+            fi
+            echo "✅ Successfully replaced image domains with Aliyun ACR."
+          else
+            echo "⚠️ Aliyun registry secrets missing. Image domains not modified."
+          fi
+
+          git add .
+          if git diff --cached --quiet; then
+            echo "No changes needed for domestic repo."
+          else
+            git commit -m "chore: release domestic edition sync from ${{ github.sha }}"
+            git push origin "$TARGET_BRANCH" || git push -u origin "$TARGET_BRANCH"
+          fi
