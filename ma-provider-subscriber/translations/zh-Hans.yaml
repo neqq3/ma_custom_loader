@@ -26,6 +26,9 @@ configuration:
   github_token:
     name: GitHub Token（可选）
     description: 可选，填写后可减少 GitHub API 限流导致的失败。
+  github_proxy:
+    name: GitHub 加速代理（可选）
+    description: "GitHub API 请求的代理前缀地址。网络连通不畅时建议设置，例如 https://ghproxy.com/"
   sources:
     name: 订阅源列表
     description: 每行一个仓库，例如 owner/repo 或 owner/repo@tag。

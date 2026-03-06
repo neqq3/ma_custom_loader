@@ -18,6 +18,7 @@ options:
   retry_attempts: 3
   retry_base_seconds: 180
   prune_removed: false
+  github_proxy: ""
   sources: []
 schema:
   log_level: list(debug|info|warning|error)
@@ -29,6 +30,7 @@ schema:
   retry_base_seconds: int(60,1800)
   prune_removed: bool
   github_token: str?
+  github_proxy: str?
   sources:
     - str
 startup: services

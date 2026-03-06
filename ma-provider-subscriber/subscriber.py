@@ -96,6 +96,23 @@ def parse_source(raw: str):
     return {"owner": match.group(1), "repo": match.group(2), "pinned_ref": pinned_ref}
 
 
+def build_gh_url(path: str, proxy: str) -> str:
+    """构建 GitHub API 请求 URL。
+
+    当 proxy 非空时，将原始 URL 拼接到代理前缀之后，
+    以改善部分地区对 api.github.com 访问不佳的问题。
+    例如：proxy='https://ghproxy.com/' 时
+      build_gh_url('/repos/foo/bar', proxy)
+      -> 'https://ghproxy.com/https://api.github.com/repos/foo/bar'
+    """
+    base_url = f"https://api.github.com{path}"
+    if not proxy:
+        return base_url
+    # 确保 proxy 尾部有 /
+    prefix = proxy.rstrip("/") + "/"
+    return f"{prefix}{base_url}"
+
+
 def gh_request(url: str, token: str | None) -> bytes:
     headers = {"Accept": "application/vnd.github+json", "User-Agent": "ma-provider-subscriber"}
     if token:
@@ -105,14 +122,16 @@ def gh_request(url: str, token: str | None) -> bytes:
         return resp.read()
 
 
-def get_default_branch(owner: str, repo: str, token: str | None) -> str:
-    data = json.loads(gh_request(f"https://api.github.com/repos/{owner}/{repo}", token))
+def get_default_branch(owner: str, repo: str, token: str | None, proxy: str = "") -> str:
+    url = build_gh_url(f"/repos/{owner}/{repo}", proxy)
+    data = json.loads(gh_request(url, token))
     return data.get("default_branch") or "main"
 
 
-def get_latest_release(owner: str, repo: str, token: str | None) -> str | None:
+def get_latest_release(owner: str, repo: str, token: str | None, proxy: str = "") -> str | None:
     try:
-        data = json.loads(gh_request(f"https://api.github.com/repos/{owner}/{repo}/releases/latest", token))
+        url = build_gh_url(f"/repos/{owner}/{repo}/releases/latest", proxy)
+        data = json.loads(gh_request(url, token))
         tag = (data.get("tag_name") or "").strip()
         return tag or None
     except urllib.error.HTTPError as exc:
@@ -121,26 +140,28 @@ def get_latest_release(owner: str, repo: str, token: str | None) -> str | None:
         raise
 
 
-def resolve_ref(owner: str, repo: str, parsed: dict, strategy: str, token: str | None) -> str:
+def resolve_ref(owner: str, repo: str, parsed: dict, strategy: str, token: str | None, proxy: str = "") -> str:
     if parsed["pinned_ref"]:
         return parsed["pinned_ref"]
     if strategy == "latest_release":
-        latest = get_latest_release(owner, repo, token)
+        latest = get_latest_release(owner, repo, token, proxy)
         if latest:
             return latest
-    return get_default_branch(owner, repo, token)
+    return get_default_branch(owner, repo, token, proxy)
 
 
-def resolve_sha(owner: str, repo: str, ref: str, token: str | None) -> str:
-    data = json.loads(gh_request(f"https://api.github.com/repos/{owner}/{repo}/commits/{ref}", token))
+def resolve_sha(owner: str, repo: str, ref: str, token: str | None, proxy: str = "") -> str:
+    url = build_gh_url(f"/repos/{owner}/{repo}/commits/{ref}", proxy)
+    data = json.loads(gh_request(url, token))
     sha = (data.get("sha") or "").strip()
     if not sha:
         raise RuntimeError("commit sha is empty")
     return sha
 
 
-def download_zip(owner: str, repo: str, ref: str, token: str | None) -> bytes:
-    return gh_request(f"https://api.github.com/repos/{owner}/{repo}/zipball/{ref}", token)
+def download_zip(owner: str, repo: str, ref: str, token: str | None, proxy: str = "") -> bytes:
+    url = build_gh_url(f"/repos/{owner}/{repo}/zipball/{ref}", proxy)
+    return gh_request(url, token)
 
 
 def is_retryable_error(exc: Exception) -> bool:
@@ -174,8 +195,12 @@ def sync_once(options: dict, state: dict, target_dir: Path) -> dict:
     strategy = options.get("update_strategy", "latest_release")
     prune_removed = bool(options.get("prune_removed", False))
     token = (options.get("github_token") or "").strip() or None
+    proxy = (options.get("github_proxy") or "").strip()
     retry_attempts = max(1, min(5, int(options.get("retry_attempts", 3))))
     retry_base_seconds = max(60, min(1800, int(options.get("retry_base_seconds", 180))))
+
+    if proxy:
+        log("INFO", f"GitHub proxy enabled: {proxy}")
 
     target_dir.mkdir(parents=True, exist_ok=True)
     next_state = {"sources": {}}
@@ -196,13 +221,13 @@ def sync_once(options: dict, state: dict, target_dir: Path) -> dict:
         source_key = f"{owner}/{repo}"
 
         def run_for_source():
-            ref = resolve_ref(owner, repo, parsed, strategy, token)
-            sha = resolve_sha(owner, repo, ref, token)
+            ref = resolve_ref(owner, repo, parsed, strategy, token, proxy)
+            sha = resolve_sha(owner, repo, ref, token, proxy)
             prev = (state.get("sources") or {}).get(source_key, {})
             if prev.get("sha") == sha:
                 return {"status": "no_change", "ref": ref, "sha": sha, "prev": prev}
 
-            archive = download_zip(owner, repo, ref, token)
+            archive = download_zip(owner, repo, ref, token, proxy)
             with tempfile.TemporaryDirectory(prefix="provider_subscriber_") as tmp:
                 tmp_root = Path(tmp)
                 with zipfile.ZipFile(io.BytesIO(archive)) as zf:
@@ -236,6 +261,11 @@ def sync_once(options: dict, state: dict, target_dir: Path) -> dict:
                         raise
                     wait_seconds = backoff_sleep_seconds(retry_base_seconds, attempt)
                     log("WARNING", f"{source_key} network error attempt {attempt}/{retry_attempts}: {exc}; retry in {wait_seconds}s")
+                    if not proxy and is_retryable_error(exc):
+                        log("WARNING",
+                            "[提示/Hint] 如果经常遇到网络超时，请在加载项配置中设置 github_proxy 以加速下载。"
+                            " / If you frequently encounter network timeouts, set 'github_proxy' in add-on config to speed up downloads."
+                        )
                     time.sleep(wait_seconds)
 
             if result is None:
