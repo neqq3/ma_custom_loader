@@ -144,13 +144,16 @@ jobs:
       - name: Check Aliyun ACR configuration
         id: aliyun_check
         run: |
-          if [ -n "$ALIYUN_REGISTRY" ]; then
+          if [ -n "$ALIYUN_REGISTRY" ] && [ -n "$ALIYUN_NAMESPACE" ] && [ -n "$ALIYUN_REGISTRY_USER" ] && [ -n "$ALIYUN_REGISTRY_PASSWORD" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
           fi
         env:
           ALIYUN_REGISTRY: ${{ secrets.ALIYUN_REGISTRY }}
+          ALIYUN_NAMESPACE: ${{ secrets.ALIYUN_NAMESPACE }}
+          ALIYUN_REGISTRY_USER: ${{ secrets.ALIYUN_REGISTRY_USER }}
+          ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
 
       - name: Log in to Aliyun ACR
         if: (github.event_name != 'schedule' || steps.sync.outputs.changed == 'true') && steps.aliyun_check.outputs.enabled == 'true'
@@ -246,13 +249,16 @@ jobs:
       - name: Check Aliyun ACR configuration (subscriber)
         id: aliyun_check
         run: |
-          if [ -n "$ALIYUN_REGISTRY" ]; then
+          if [ -n "$ALIYUN_REGISTRY" ] && [ -n "$ALIYUN_NAMESPACE" ] && [ -n "$ALIYUN_REGISTRY_USER" ] && [ -n "$ALIYUN_REGISTRY_PASSWORD" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
           fi
         env:
           ALIYUN_REGISTRY: ${{ secrets.ALIYUN_REGISTRY }}
+          ALIYUN_NAMESPACE: ${{ secrets.ALIYUN_NAMESPACE }}
+          ALIYUN_REGISTRY_USER: ${{ secrets.ALIYUN_REGISTRY_USER }}
+          ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
 
       - name: Log in to Aliyun ACR (subscriber)
         if: steps.aliyun_check.outputs.enabled == 'true'
@@ -345,13 +351,16 @@ jobs:
       - name: Check Aliyun ACR configuration (beta)
         id: aliyun_check
         run: |
-          if [ -n "$ALIYUN_REGISTRY" ]; then
+          if [ -n "$ALIYUN_REGISTRY" ] && [ -n "$ALIYUN_NAMESPACE" ] && [ -n "$ALIYUN_REGISTRY_USER" ] && [ -n "$ALIYUN_REGISTRY_PASSWORD" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
           fi
         env:
           ALIYUN_REGISTRY: ${{ secrets.ALIYUN_REGISTRY }}
+          ALIYUN_NAMESPACE: ${{ secrets.ALIYUN_NAMESPACE }}
+          ALIYUN_REGISTRY_USER: ${{ secrets.ALIYUN_REGISTRY_USER }}
+          ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
 
       - name: Log in to Aliyun ACR (beta)
         if: steps.aliyun_check.outputs.enabled == 'true'

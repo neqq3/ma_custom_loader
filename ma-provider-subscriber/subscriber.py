@@ -115,7 +115,8 @@ def build_gh_url(path: str, proxy: str) -> str:
 
 def gh_request(url: str, token: str | None) -> bytes:
     headers = {"Accept": "application/vnd.github+json", "User-Agent": "ma-provider-subscriber"}
-    if token:
+    # 安全加固：仅当请求直接发送给 GitHub 时才附加 Token，防止被第三方代理截获
+    if token and url.startswith("https://api.github.com/"):
         headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=30) as resp:
