@@ -7,6 +7,7 @@ import re
 import shutil
 import socket
 import ssl
+import subprocess
 import tempfile
 import time
 import urllib.error
@@ -129,7 +130,7 @@ def build_provider_api_url(provider: str, path: str, proxy: str = "") -> str:
     if provider == "gitee":
         return f"https://gitee.com/api/v5{path}"
     if provider == "gitcode":
-        return f"https://gitcode.com/api/v5{path}"
+        return f"https://api.gitcode.com/api/v5{path}"
     raise ValueError(f"Unsupported provider: {provider}")
 
 
@@ -180,18 +181,81 @@ def resolve_sha(provider: str, owner: str, repo: str, ref: str, token: str | Non
     return sha
 
 
-def download_zip(provider: str, owner: str, repo: str, ref: str, token: str | None, proxy: str = "") -> bytes:
+def is_zip_bytes(data: bytes) -> bool:
+    return data.startswith((b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08"))
+
+
+def archive_urls(provider: str, owner: str, repo: str, ref: str, proxy: str = "") -> list[str]:
+    ref_q = urllib.parse.quote(ref, safe="")
     if provider == "github":
-        url = build_provider_api_url(provider, f"/repos/{owner}/{repo}/zipball/{ref}", proxy)
-    elif provider == "gitee":
-        ref_q = urllib.parse.quote(ref, safe="")
-        url = f"https://gitee.com/{owner}/{repo}/repository/archive/{ref_q}.zip"
-    elif provider == "gitcode":
-        ref_q = urllib.parse.quote(ref, safe="")
-        url = f"https://gitcode.com/{owner}/{repo}/repository/archive/{ref_q}.zip"
-    else:
+        return [build_provider_api_url(provider, f"/repos/{owner}/{repo}/zipball/{ref}", proxy)]
+    if provider == "gitee":
+        return [
+            build_provider_api_url(provider, f"/repos/{owner}/{repo}/zipball/{ref}", proxy),
+            f"https://gitee.com/{owner}/{repo}/repository/archive/{ref_q}.zip",
+        ]
+    if provider == "gitcode":
+        return [
+            build_provider_api_url(provider, f"/repos/{owner}/{repo}/zipball/{ref}", proxy),
+            f"https://gitcode.com/{owner}/{repo}/repository/archive/{ref_q}.zip",
+        ]
+    raise ValueError(f"Unsupported provider: {provider}")
+
+def repo_clone_url(provider: str, owner: str, repo: str) -> str:
+    host_map = {
+        "github": "github.com",
+        "gitee": "gitee.com",
+        "gitcode": "gitcode.com",
+    }
+    host = host_map.get(provider)
+    if not host:
         raise ValueError(f"Unsupported provider: {provider}")
-    return http_request(url, token)
+    return f"https://{host}/{owner}/{repo}.git"
+
+
+def download_zip_via_git_clone(provider: str, owner: str, repo: str, ref: str) -> bytes:
+    with tempfile.TemporaryDirectory(prefix="provider_git_clone_") as tmp:
+        repo_dir = Path(tmp) / "repo"
+        subprocess.run(
+            ["git", "clone", "--depth", "1", "--branch", ref, repo_clone_url(provider, owner, repo), str(repo_dir)],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        zip_root = f"{repo}-{ref}"
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for path in repo_dir.rglob("*"):
+                if ".git" in path.parts:
+                    continue
+                arcname = f"{zip_root}/{path.relative_to(repo_dir).as_posix()}"
+                if path.is_dir():
+                    zf.writestr(f"{arcname}/", b"")
+                else:
+                    zf.write(path, arcname)
+        return buf.getvalue()
+
+
+
+def download_zip(provider: str, owner: str, repo: str, ref: str, token: str | None, proxy: str = "") -> bytes:
+    errors: list[str] = []
+    for url in archive_urls(provider, owner, repo, ref, proxy):
+        try:
+            payload = http_request(url, token)
+            if is_zip_bytes(payload):
+                return payload
+            preview = payload[:120].decode("utf-8", errors="ignore").replace("\n", " ").replace("\r", " ")
+            errors.append(f"{url} returned non-zip payload: {preview}")
+        except Exception as exc:
+            errors.append(f"{url} -> {exc}")
+    if provider in ("gitee", "gitcode"):
+        try:
+            return download_zip_via_git_clone(provider, owner, repo, ref)
+        except Exception as exc:
+            errors.append(f"git-clone fallback -> {exc}")
+    raise RuntimeError("archive download failed; " + " | ".join(errors))
 
 def is_retryable_error(exc: Exception) -> bool:
     return isinstance(exc, (urllib.error.URLError, TimeoutError, socket.timeout, ConnectionResetError, ssl.SSLError))

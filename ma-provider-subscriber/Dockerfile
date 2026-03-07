@@ -1,7 +1,7 @@
 ARG BUILD_FROM
 FROM $BUILD_FROM
 
-RUN apk add --no-cache python3 ca-certificates
+RUN apk add --no-cache python3 ca-certificates git
 
 COPY run.sh /run.sh
 COPY subscriber.py /subscriber.py
@@ -14,4 +14,5 @@ LABEL \
   io.hass.version="0.2.0"
 
 ENTRYPOINT ["/run.sh"]
+
 
