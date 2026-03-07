@@ -19,9 +19,16 @@ This repository provides two Home Assistant add-ons:
 
 ### Source Examples
 
+**1. Short Syntax (Defaults to GitHub)**
+Short format (like `owner/repo`) will only fetch from GitHub by default.
 - `neqq3/ma_ncloud_music`
-- `andychao2024/music-assistant-providers`
-- `someuser/some-provider@v1.2.3`
+- `owner/repo@v1.2.3`
+
+**2. Full URL (Recommended for users in China)**
+Fast downloads from Gitee and GitCode. These sources connect directly and **strictly bypass the `github_proxy` setting**, preventing proxy pollution errors.
+- `https://gitcode.com/neqq3/ma_ncloud_music`
+- `https://gitee.com/andychao2020/music-assistant-providers`
+- `https://github.com/owner/repo`
 
 ## Why Two Add-ons
 

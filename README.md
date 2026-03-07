@@ -20,11 +20,18 @@
   `/share/music_assistant/custom_providers`
 - **典型用法**: 给常用插件仓库做自动更新，避免每次手工下载上传
 
-### Source 示例
+### 订阅源示例 (Source)
 
+**1. 默认简写（默认走 GitHub）**
+简写格式（如 `owner/repo`）默认只从 GitHub 拉取。
 - `neqq3/ma_ncloud_music`
-- `andychao2024/music-assistant-providers`
-- `someuser/some-provider@v1.2.3`
+- `owner/repo@v1.2.3`
+
+**2. 完整链接（推荐国内用户，速度更快）**
+支持使用 Gitee 或 GitCode 的完整仓库链接。使用国内源时代码将直连下载，**严格与 GitHub 隔离，不会受到 `github_proxy` 代理设置的干扰**，避免各种代理污染报错。
+- `https://gitcode.com/neqq3/ma_ncloud_music`
+- `https://gitee.com/andychao2020/music-assistant-providers`
+- `https://github.com/owner/repo`
 
 ## 插件仓库规范
 
