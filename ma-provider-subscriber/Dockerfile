@@ -11,6 +11,7 @@ LABEL \
   io.hass.name="Music Assistant Provider Subscriber" \
   io.hass.description="Subscribe third-party GitHub provider repos and auto-update to /share/music_assistant/custom_providers." \
   io.hass.type="addon" \
-  io.hass.version="0.1.0"
+  io.hass.version="0.2.0"
 
 ENTRYPOINT ["/run.sh"]
+
