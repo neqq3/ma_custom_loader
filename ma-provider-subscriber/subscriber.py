@@ -219,10 +219,16 @@ def repo_clone_url(provider: str, owner: str, repo: str) -> str:
     return f"https://{host}/{owner}/{repo}.git"
 
 
-def git_ls_remote(repo_url: str, *patterns: str, symref: bool = False) -> list[str]:
+def git_ls_remote(
+    repo_url: str, *patterns: str, symref: bool = False, tags: bool = False, refs: bool = False
+) -> list[str]:
     cmd = ["git", "ls-remote"]
     if symref:
         cmd.append("--symref")
+    if tags:
+        cmd.append("--tags")
+    if refs:
+        cmd.append("--refs")
     cmd.append(repo_url)
     cmd.extend(patterns)
     proc = subprocess.run(
@@ -253,7 +259,7 @@ def semver_tag_key(tag: str) -> tuple:
 
 
 def get_latest_tag_via_git(provider: str, owner: str, repo: str) -> str | None:
-    lines = git_ls_remote(repo_clone_url(provider, owner, repo), "--tags", "--refs")
+    lines = git_ls_remote(repo_clone_url(provider, owner, repo), tags=True, refs=True)
     tags: list[str] = []
     for line in lines:
         parts = line.split("	", 1)
@@ -509,3 +515,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         log("INFO", "Interrupted, exiting.")
         raise SystemExit(0)
+
