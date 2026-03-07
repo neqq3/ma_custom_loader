@@ -145,12 +145,16 @@ def http_request(url: str, token: str | None) -> bytes:
 
 
 def get_default_branch(provider: str, owner: str, repo: str, token: str | None, proxy: str = "") -> str:
+    if provider == "gitcode":
+        return get_default_branch_via_git(provider, owner, repo)
     url = build_provider_api_url(provider, f"/repos/{owner}/{repo}", proxy)
     data = json.loads(http_request(url, token))
     return data.get("default_branch") or "main"
 
 
 def get_latest_release(provider: str, owner: str, repo: str, token: str | None, proxy: str = "") -> str | None:
+    if provider == "gitcode":
+        return get_latest_tag_via_git(provider, owner, repo)
     try:
         url = build_provider_api_url(provider, f"/repos/{owner}/{repo}/releases/latest", proxy)
         data = json.loads(http_request(url, token))
@@ -173,6 +177,8 @@ def resolve_ref(provider: str, owner: str, repo: str, parsed: dict, strategy: st
 
 
 def resolve_sha(provider: str, owner: str, repo: str, ref: str, token: str | None, proxy: str = "") -> str:
+    if provider == "gitcode":
+        return resolve_sha_via_git(provider, owner, repo, ref)
     url = build_provider_api_url(provider, f"/repos/{owner}/{repo}/commits/{ref}", proxy)
     data = json.loads(http_request(url, token))
     sha = (data.get("sha") or "").strip()
@@ -211,6 +217,71 @@ def repo_clone_url(provider: str, owner: str, repo: str) -> str:
     if not host:
         raise ValueError(f"Unsupported provider: {provider}")
     return f"https://{host}/{owner}/{repo}.git"
+
+
+def git_ls_remote(repo_url: str, *patterns: str, symref: bool = False) -> list[str]:
+    cmd = ["git", "ls-remote"]
+    if symref:
+        cmd.append("--symref")
+    cmd.append(repo_url)
+    cmd.extend(patterns)
+    proc = subprocess.run(
+        cmd,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+
+
+def get_default_branch_via_git(provider: str, owner: str, repo: str) -> str:
+    lines = git_ls_remote(repo_clone_url(provider, owner, repo), "HEAD", symref=True)
+    for line in lines:
+        m = re.match(r"ref:\s+refs/heads/(.+)\tHEAD$", line)
+        if m:
+            return m.group(1)
+    return "main"
+
+
+def semver_tag_key(tag: str) -> tuple:
+    t = tag.lstrip("vV")
+    m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$", t)
+    if m:
+        return (1, int(m.group(1)), int(m.group(2)), int(m.group(3)), tag)
+    return (0, 0, 0, 0, tag)
+
+
+def get_latest_tag_via_git(provider: str, owner: str, repo: str) -> str | None:
+    lines = git_ls_remote(repo_clone_url(provider, owner, repo), "--tags", "--refs")
+    tags: list[str] = []
+    for line in lines:
+        parts = line.split("	", 1)
+        if len(parts) != 2:
+            continue
+        ref_name = parts[1]
+        if ref_name.startswith("refs/tags/"):
+            tags.append(ref_name[len("refs/tags/"):])
+    if not tags:
+        return None
+    tags.sort(key=semver_tag_key)
+    return tags[-1]
+
+
+def resolve_sha_via_git(provider: str, owner: str, repo: str, ref: str) -> str:
+    repo_url = repo_clone_url(provider, owner, repo)
+    lines = git_ls_remote(
+        repo_url,
+        f"refs/heads/{ref}",
+        f"refs/tags/{ref}^{{}}",
+        f"refs/tags/{ref}",
+        ref,
+    )
+    for line in lines:
+        parts = line.split("	", 1)
+        if len(parts) == 2 and parts[0]:
+            return parts[0]
+    raise RuntimeError(f"commit sha not found for ref: {ref}")
 
 
 def download_zip_via_git_clone(provider: str, owner: str, repo: str, ref: str) -> bytes:
