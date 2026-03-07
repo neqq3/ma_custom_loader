@@ -31,4 +31,4 @@ configuration:
     description: "Proxy URL prefix for GitHub API requests. Useful for unreliable network environments. Example: https://ghproxy.com/"
   sources:
     name: Subscription sources
-    description: One repo per line, such as owner/repo or owner/repo@tag.
+    description: One repo per line, such as owner/repo, owner/repo@tag, or https://gitee.com/owner/repo or https://gitcode.com/owner/repo.

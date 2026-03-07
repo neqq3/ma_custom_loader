@@ -11,6 +11,8 @@
   "github_proxy": "",
   "sources": [
     "neqq3/ma_ncloud_music",
-    "andychao2024/music-assistant-providers"
+    "andychao2024/music-assistant-providers",
+    "https://gitee.com/andychao2020/music-assistant-providers",
+    "https://gitcode.com/andychao2020/music-assistant-providers"
   ]
 }
