@@ -425,6 +425,16 @@ jobs:
           }
 
           cd domestic
+          DOMESTIC_REPO_URL="https://gitcode.com/${GITCODE_REPO}"
+          if [ -f "repository.yaml" ]; then
+            sed -i "s|^url: \".*\"|url: \"${DOMESTIC_REPO_URL}\"|g" repository.yaml
+          fi
+          for addon_cfg in ma-custom-loader/config.yaml ma-provider-subscriber/config.yaml ma-custom-loader-beta/config.yaml; do
+            if [ -f "${addon_cfg}" ]; then
+              sed -i "s|^url: \".*\"|url: \"${DOMESTIC_REPO_URL}\"|g" "${addon_cfg}"
+            fi
+          done
+
           TARGET_BRANCH="$(git ls-remote --symref origin HEAD 2>/dev/null | awk '/^ref:/ {sub("refs/heads/","",$2); print $2; exit}')"
           if [ -z "$TARGET_BRANCH" ]; then
             TARGET_BRANCH="main"
