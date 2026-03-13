@@ -404,6 +404,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: upstream
+          ref: refs/heads/main
+          fetch-depth: 0
 
       - name: Sync and publish to GitCode
         if: steps.gitcode_check.outputs.enabled == 'true'
