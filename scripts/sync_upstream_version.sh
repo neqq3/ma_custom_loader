@@ -87,37 +87,10 @@ import re
 import sys
 
 
-def normalize_release_notes(body: str) -> list[str]:
-    lines: list[str] = []
-    for raw_line in body.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
-        line = raw_line.strip()
-        if not line:
-            continue
-        if line.startswith("#"):
-            line = line.lstrip("#").strip()
-        line = re.sub(r"^[-*+]\s+", "", line)
-        line = re.sub(r"^\d+\.\s+", "", line)
-        line = re.sub(r"\s+", " ", line).strip()
-        if line:
-            lines.append(line)
-    deduped: list[str] = []
-    seen: set[str] = set()
-    for line in lines:
-        key = line.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(line)
-    return deduped[:12]
-
-
 changelog_path = Path(sys.argv[1])
 latest = sys.argv[2]
 release_json = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
-release_name = (release_json.get("name") or "").strip()
 release_url = (release_json.get("html_url") or "").strip()
-release_body = release_json.get("body") or ""
-release_notes = normalize_release_notes(release_body)
 
 if changelog_path.exists():
     text = changelog_path.read_text(encoding="utf-8")
@@ -127,20 +100,13 @@ else:
 entry_lines = [
     f"## {latest}",
     "",
-    f"- Upstream MA: {latest}",
-    f"- Synced base image with Music Assistant `{latest}`.",
+    f"- 已同步至上游 Music Assistant {latest}",
+    f"- Synced to upstream Music Assistant {latest}",
 ]
 
-if release_name:
-    entry_lines.append(f"- Upstream release: {release_name}")
 if release_url:
-    entry_lines.append(f"- Source release: {release_url}")
-
-if release_notes:
-    entry_lines.append("- Upstream release notes:")
-    entry_lines.extend([f"  - {line}" for line in release_notes])
-else:
-    entry_lines.append("- Upstream release notes were empty in the upstream release payload.")
+    entry_lines.append(f"- 上游发布说明: {release_url}")
+    entry_lines.append(f"- Upstream release notes: {release_url}")
 
 entry = "\n".join(entry_lines).rstrip() + "\n"
 
