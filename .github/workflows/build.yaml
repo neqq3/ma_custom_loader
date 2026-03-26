@@ -180,7 +180,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ma-custom-loader/config.yaml ma-custom-loader/Dockerfile
+          git add ma-custom-loader/config.yaml ma-custom-loader/Dockerfile ma-custom-loader/CHANGELOG.md
           if git diff --cached --quiet; then
             echo "No metadata changes to commit."
             exit 0

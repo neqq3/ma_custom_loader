@@ -4,6 +4,7 @@ set -euo pipefail
 UPSTREAM_REPO="${UPSTREAM_REPO:-music-assistant/server}"
 ADDON_CONFIG="${ADDON_CONFIG:-ma-custom-loader/config.yaml}"
 DOCKERFILE="${DOCKERFILE:-ma-custom-loader/Dockerfile}"
+CHANGELOG_FILE="${CHANGELOG_FILE:-ma-custom-loader/CHANGELOG.md}"
 API_URL="https://api.github.com/repos/${UPSTREAM_REPO}/releases/latest"
 
 auth_header=()
@@ -73,6 +74,92 @@ else:
     text = re.sub(r'^(version:\s*".*"\n)', r'\1' + f'upstream_version: "{latest}"\n', text, count=1, flags=re.M)
 
 config.write_text(text, encoding='utf-8', newline='\n')
+PY
+
+release_json_file="$(mktemp)"
+trap 'rm -f "${release_json_file}"' EXIT
+printf '%s' "${release_json}" > "${release_json_file}"
+
+python3 - "${CHANGELOG_FILE}" "${latest_version}" "${release_json_file}" <<'PY'
+from pathlib import Path
+import json
+import re
+import sys
+
+
+def normalize_release_notes(body: str) -> list[str]:
+    lines: list[str] = []
+    for raw_line in body.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("#"):
+            line = line.lstrip("#").strip()
+        line = re.sub(r"^[-*+]\s+", "", line)
+        line = re.sub(r"^\d+\.\s+", "", line)
+        line = re.sub(r"\s+", " ", line).strip()
+        if line:
+            lines.append(line)
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for line in lines:
+        key = line.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(line)
+    return deduped[:12]
+
+
+changelog_path = Path(sys.argv[1])
+latest = sys.argv[2]
+release_json = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
+release_name = (release_json.get("name") or "").strip()
+release_url = (release_json.get("html_url") or "").strip()
+release_body = release_json.get("body") or ""
+release_notes = normalize_release_notes(release_body)
+
+if changelog_path.exists():
+    text = changelog_path.read_text(encoding="utf-8")
+else:
+    text = "# Changelog\n"
+
+entry_lines = [
+    f"## {latest}",
+    "",
+    f"- Upstream MA: {latest}",
+    f"- Synced base image with Music Assistant `{latest}`.",
+]
+
+if release_name:
+    entry_lines.append(f"- Upstream release: {release_name}")
+if release_url:
+    entry_lines.append(f"- Source release: {release_url}")
+
+if release_notes:
+    entry_lines.append("- Upstream release notes:")
+    entry_lines.extend([f"  - {line}" for line in release_notes])
+else:
+    entry_lines.append("- Upstream release notes were empty in the upstream release payload.")
+
+entry = "\n".join(entry_lines).rstrip() + "\n"
+
+if not text.startswith("# Changelog"):
+    text = "# Changelog\n\n" + text.lstrip()
+
+pattern = re.compile(rf"(?ms)^## {re.escape(latest)}\n.*?(?=^## |\Z)")
+if pattern.search(text):
+    text = pattern.sub(entry + "\n", text, count=1)
+else:
+    parts = text.split("\n", 2)
+    if len(parts) >= 2 and parts[0].strip() == "# Changelog":
+        remainder = parts[2] if len(parts) == 3 else ""
+        text = "# Changelog\n\n" + entry + ("\n" + remainder.lstrip("\n") if remainder else "")
+    else:
+        text = "# Changelog\n\n" + entry + "\n" + text.lstrip("\n")
+
+text = re.sub(r"\n{3,}", "\n\n", text).rstrip() + "\n"
+changelog_path.write_text(text, encoding="utf-8", newline="\n")
 PY
 
 sed -E -i "s#^ARG BUILD_FROM=.*#ARG BUILD_FROM=ghcr.io/music-assistant/server:${latest_version}#" "${DOCKERFILE}"
