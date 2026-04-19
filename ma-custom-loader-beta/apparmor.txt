@@ -1,0 +1,35 @@
+profile ma-custom-loader-beta flags=(attach_disconnected,mediate_deleted) {
+  capability,
+  file,
+  signal,
+  mount,
+  umount,
+  remount,
+  network udp,
+  network tcp,
+  network dgram,
+  network stream,
+  network seqpacket,
+  network inet,
+  network inet6,
+  network netlink raw,
+  network unix dgram,
+
+  capability setgid,
+  capability setuid,
+  capability sys_admin,
+  capability dac_read_search,
+
+  /dev/* mrwkl,
+  /tmp/** mrkwl,
+
+  # Data access
+  /data/** rw,
+  /media/** rw,
+  /share/** rw,
+  /ssl/** r,
+
+  # docker daemon confinement requires explicit allow rule for signal
+  signal (receive) set=(kill,term) peer=/usr/bin/docker,
+
+}

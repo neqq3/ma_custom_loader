@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.8.5-beta.1
+
+- Upstream MA: 2.8.5
+- Reset beta channel onto the latest upstream Music Assistant base.
+- Align beta add-on permissions with the official Music Assistant add-on for SMB/CIFS mounts.
+- Add `SYS_ADMIN` and `DAC_READ_SEARCH` capabilities required by the filesystem provider when mounting SMB shares.
+- Add a custom AppArmor profile based on the official MA profile, with `/share` access kept for custom provider injection.
+- Mirror low-risk official add-on metadata: discovery, auth API, SSL mapping, tmpfs, UART flag, and backup exclusions.
+
 ## 2.7.10-beta.5
 
 - Upstream MA: 2.7.10
