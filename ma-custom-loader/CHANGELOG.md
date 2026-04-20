@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.8.5.1
+
+- Upstream MA: 2.8.5
+- Fix SMB/CIFS mount support in the stable custom loader.
+- 修复正式版自定义加载器中的 SMB/CIFS 挂载功能。
+- Add the official Music Assistant mount capabilities and AppArmor allowances required by the filesystem provider.
+- 补齐文件系统提供程序挂载 SMB 所需的 Music Assistant 官方能力权限与 AppArmor 放行规则。
+
 ## 2.8.5
 
 - 已同步至上游 Music Assistant 2.8.5

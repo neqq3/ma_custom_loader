@@ -1,7 +1,7 @@
 name: "Music Assistant (Custom Loader)"
 description: "The music library manager of your dreams. Pure loader version - supports loading custom plugins from /share."
 url: "https://github.com/neqq3/ma_custom_loader"
-version: "2.8.5"
+version: "2.8.5.1"
 upstream_version: "2.8.5"
 slug: "ma-custom-loader"
 ingress: true
@@ -9,10 +9,19 @@ ingress_port: 8094
 arch:
   - aarch64
   - amd64
+auth_api: true
+discovery:
+  - music_assistant
+apparmor: true
 init: false
 map:
+  - "ssl:ro"
   - "share:rw"
   - "media:rw"
+backup_exclude:
+  - cache.db
+  - collage_images/*
+  - .cache/*
 options:
   log_level: "info"
   strict_provider_injection: false
@@ -33,6 +42,8 @@ webui: "http://[HOST]:[PORT:8095]"
 host_network: true
 startup: application
 boot: manual
+tmpfs: true
+uart: false
 hassio_role: manager
 hassio_api: true
 homeassistant_api: true
@@ -40,3 +51,6 @@ panel_icon: "mdi:music-box-multiple"
 panel_title: "Music Assistant"
 panel_admin: false
 image: "ghcr.io/neqq3/ma-custom-loader-{arch}"
+privileged:
+  - SYS_ADMIN
+  - DAC_READ_SEARCH
