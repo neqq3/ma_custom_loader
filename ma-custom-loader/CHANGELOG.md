@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.8.7
+
+- 已同步至上游 Music Assistant 2.8.7
+- Synced to upstream Music Assistant 2.8.7
+- 上游发布说明: https://github.com/music-assistant/server/releases/tag/2.8.7
+- Upstream release notes: https://github.com/music-assistant/server/releases/tag/2.8.7
+
 ## 2.8.6
 
 - 已同步至上游 Music Assistant 2.8.6
