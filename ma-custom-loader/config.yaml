@@ -1,8 +1,8 @@
 name: "Music Assistant (Custom Loader)"
 description: "The music library manager of your dreams. Pure loader version - supports loading custom plugins from /share."
 url: "https://github.com/neqq3/ma_custom_loader"
-version: "2.9.7"
-upstream_version: "2.9.7"
+version: "2.9.8"
+upstream_version: "2.9.8"
 slug: "ma-custom-loader"
 ingress: true
 ingress_port: 8094
