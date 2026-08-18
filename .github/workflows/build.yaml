@@ -166,6 +166,8 @@ jobs:
       - name: Push image to Aliyun ACR
         if: (github.event_name != 'schedule' || steps.sync.outputs.changed == 'true') && steps.aliyun_check.outputs.enabled == 'true'
         uses: docker/build-push-action@v5
+        env:
+          BUILDX_NO_DEFAULT_OCI_ARTIFACT: "1"
         with:
           context: ma-custom-loader
           file: ma-custom-loader/Dockerfile
@@ -271,6 +273,8 @@ jobs:
       - name: Push subscriber image to Aliyun ACR
         if: steps.aliyun_check.outputs.enabled == 'true'
         uses: docker/build-push-action@v5
+        env:
+          BUILDX_NO_DEFAULT_OCI_ARTIFACT: "1"
         with:
           context: ma-provider-subscriber
           file: ma-provider-subscriber/Dockerfile
@@ -373,6 +377,8 @@ jobs:
       - name: Push beta image to Aliyun ACR
         if: steps.aliyun_check.outputs.enabled == 'true'
         uses: docker/build-push-action@v5
+        env:
+          BUILDX_NO_DEFAULT_OCI_ARTIFACT: "1"
         with:
           context: ma-custom-loader-beta
           file: ma-custom-loader-beta/Dockerfile
