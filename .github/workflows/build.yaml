@@ -140,6 +140,22 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.arch }}:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.arch }}:${{ steps.version.outputs.version }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.arch }}:${{ github.sha }}
 
+      - name: Verify stable remote access native library
+        if: github.event_name != 'schedule' || steps.sync.outputs.changed == 'true'
+        run: |
+          docker run --rm -i --platform "${{ matrix.platform }}" \
+            --entrypoint /bin/sh \
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.arch }}:${{ github.sha }}" -es <<'SH'
+          probe_dir="$(mktemp -d)"
+          # Exercise /run.sh and the upstream entrypoint without starting a server.
+          cat > "$probe_dir/mass" <<'PROBE'
+          #!/bin/sh
+          exec python3 -c 'import os; assert os.environ.get("LD_PRELOAD"), "Upstream preload missing"; import aiolibdatachannel; from music_assistant.controllers.webserver.remote_access.gateway import WebRTCGateway; print("Remote access native library loaded successfully")'
+          PROBE
+          chmod +x "$probe_dir/mass"
+          PATH="$probe_dir:$PATH" /run.sh
+          SH
+
       # ---- Aliyun ACR push (domestic mirror) ----
       - name: Check Aliyun ACR configuration
         id: aliyun_check

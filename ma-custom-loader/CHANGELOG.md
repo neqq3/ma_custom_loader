@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.10.3.1
+
+- Upstream MA: 2.10.3
+- 修复开启远程访问时原生库缺少 C++ 符号的问题；同步已在 Beta 验证的官方入口启动方式。
+- Fix the missing C++ runtime symbol when enabling remote access by starting through the upstream entrypoint, as validated in beta.
+- Preserve custom provider injection, existing `/data`, and migration behavior.
+
 ## 2.10.3
 
 - 已同步至上游 Music Assistant 2.10.3

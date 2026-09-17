@@ -10,7 +10,7 @@ LABEL \
   io.hass.name="Music Assistant (Customizable)" \
   io.hass.description="The music library manager of your dreams. Pure loader version - supports loading custom plugins from /share." \
   io.hass.type="addon" \
-  io.hass.version="2.10.3"
+  io.hass.version="2.10.3.1"
 
 # Set the entrypoint to our script
 ENTRYPOINT ["/run.sh"]
