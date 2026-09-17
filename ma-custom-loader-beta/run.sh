@@ -443,4 +443,5 @@ else
 fi
 
 echo "Starting Music Assistant..."
-exec mass --config /data
+# Preserve upstream runtime initialization (jemalloc and its C++ runtime dependency).
+exec /usr/local/bin/entrypoint.sh --config /data

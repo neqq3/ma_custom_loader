@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.10.3-beta.1
+
+- Upstream MA: 2.10.3
+- 自定义插件注入完成后通过上游官方入口启动，恢复远程访问原生库所需的运行环境。
+- Start through the upstream entrypoint after custom provider injection to restore the runtime initialization required by the remote access native library.
+- Preserve the existing `/data` directory and migration behavior.
+
 ## 2.8.5-beta.1
 
 - Upstream MA: 2.8.5
