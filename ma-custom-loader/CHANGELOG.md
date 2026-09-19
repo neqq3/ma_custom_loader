@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.10.4
+
+- 已同步至上游 Music Assistant 2.10.4
+- Synced to upstream Music Assistant 2.10.4
+- 上游发布说明: https://github.com/music-assistant/server/releases/tag/2.10.4
+- Upstream release notes: https://github.com/music-assistant/server/releases/tag/2.10.4
+
 ## 2.10.3.1
 
 - Upstream MA: 2.10.3
